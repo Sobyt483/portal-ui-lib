@@ -1,10 +1,7 @@
 import {
-  addSearchParams,
   executeButtonAction,
-  readUrlSearchParam,
   resolveAllPlaceholders,
   resolveContextPlaceholders,
-  snapshotUrl,
 } from '../../../utils';
 import { ResourceFormModal } from '../resource-form-modal/resource-form-modal.component';
 import { ResourceLogo } from '../resource-logo/resource-logo.component';
@@ -170,8 +167,6 @@ export class SearchListDynamicPage implements OnInit {
     });
   });
 
-  private readonly urlSnapshot: Record<string, string> = snapshotUrl();
-
   selectedSearchFilter = linkedSignal<
     FieldFilterDefinition[] | undefined,
     FieldFilterDefinition | undefined
@@ -183,10 +178,6 @@ export class SearchListDynamicPage implements OnInit {
         return previous;
       }
 
-      if (!prev && filters) {
-        const match = this.matchUrlFilter(filters);
-        if (match) return match;
-      }
       const def = filters?.find((f) => f.default);
       if (def?.property && def?.value !== undefined) return def;
       return filters?.[0];
@@ -218,15 +209,15 @@ export class SearchListDynamicPage implements OnInit {
     return columns;
   });
 
-  paginationLimit = signal<number>(this.limitFromUrl());
-  currentPage = signal<number>(this.pageFromUrl());
+  paginationLimit = signal<number>(20);
+  currentPage = signal<number>(1);
   totalItemsCount = signal<number | undefined>(undefined);
   hasMore = signal<boolean>(false);
   loading = signal<boolean>(false);
 
-  private readonly searchModel = signal(readUrlSearchParam('q') ?? '');
+  private readonly searchModel = signal('');
   readonly searchControl = form(this.searchModel);
-  searchKey = signal<string>(this.searchModel());
+  searchKey = signal<string>('');
 
   private filterCounts = signal<Record<string, number | undefined>>({});
 
@@ -264,6 +255,7 @@ export class SearchListDynamicPage implements OnInit {
   }
 
   ngOnInit(): void {
+    this.restoreStateFromNodeParams();
     this.list();
     this.loadFilterCounts();
   }
@@ -348,12 +340,20 @@ export class SearchListDynamicPage implements OnInit {
     const filter = this.selectedSearchFilter();
     const q = this.searchKey().trim();
 
-    addSearchParams({
+    const nodeParams = {
       q: q || undefined,
       page: page > 1 ? String(page) : undefined,
       limit: limit !== 20 ? String(limit) : undefined,
       tab: filter ? this.tabSlug(filter) : undefined,
-    });
+    };
+    const currentNodeParams = this.getNodeParams();
+    if (
+      Object.entries(nodeParams).some(
+        ([key, value]) => currentNodeParams[key] !== value,
+      )
+    ) {
+      this.LuigiClient().addNodeParams(nodeParams, false);
+    }
 
     const context = this.context();
     const resource = this.resourceDefinition()?.entityCollection;
@@ -514,15 +514,34 @@ export class SearchListDynamicPage implements OnInit {
     );
   }
 
-  private pageFromUrl(): number {
-    const raw = Number(readUrlSearchParam('page'));
-    return Number.isInteger(raw) && raw >= 1 ? raw : 1;
+  private restoreStateFromNodeParams(): void {
+    const params = this.getNodeParams();
+    this.currentPage.set(this.pageFromNodeParams(params.page));
+    this.paginationLimit.set(this.limitFromNodeParams(params.limit));
+    this.searchModel.set(params.q ?? '');
+    this.searchKey.set(params.q ?? '');
+
+    const filter = this.searchFilters()?.find(
+      (candidate) => this.tabSlug(candidate) === params.tab,
+    );
+    if (filter) this.selectedSearchFilter.set(filter);
   }
 
-  private limitFromUrl(): number {
-    const valid = [5, 10, 20, 50, 100];
-    const raw = Number(readUrlSearchParam('limit'));
-    return valid.includes(raw) ? raw : 20;
+  private getNodeParams(): Record<string, string | undefined> {
+    return this.LuigiClient().getNodeParams(true) as Record<
+      string,
+      string | undefined
+    >;
+  }
+
+  private pageFromNodeParams(page: string | undefined): number {
+    const value = Number(page);
+    return Number.isInteger(value) && value >= 1 ? value : 1;
+  }
+
+  private limitFromNodeParams(limit: string | undefined): number {
+    const value = Number(limit);
+    return [5, 10, 20, 50, 100].includes(value) ? value : 20;
   }
 
   private generateResourceId(resource: any): string {
@@ -555,13 +574,5 @@ export class SearchListDynamicPage implements OnInit {
     return (
       a.property === b.property && a.value === b.value && a.label === b.label
     );
-  }
-
-  private matchUrlFilter(
-    filters: FieldFilterDefinition[],
-  ): FieldFilterDefinition | undefined {
-    const tab = this.urlSnapshot['tab'];
-    if (!tab) return undefined;
-    return filters.find((f) => this.tabSlug(f) === tab);
   }
 }

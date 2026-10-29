@@ -1,5 +1,4 @@
 import {
-  addSearchParams,
   executeButtonAction,
   resolveAllPlaceholders,
   withRouteNamespace,
@@ -564,9 +563,15 @@ export class ResourceTableCard {
       throw new Error('Resource namespace is not defined');
     }
 
-    addSearchParams({
-      namespace: this.isNamespaced() ? resource.metadata.namespace : undefined,
-    });
+    this.LuigiClient().addCoreSearchParams(
+      {
+        namespace: this.isNamespaced()
+          ? resource.metadata.namespace
+          : undefined,
+      },
+      false,
+      true,
+    );
 
     this.LuigiClient()
       .linkManager()

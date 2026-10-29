@@ -488,7 +488,7 @@ export class DetailView {
   protected selectNamespace(event: UI5CustomEvent<_Select, 'change'>) {
     const namespace = event.detail.selectedOption.value || undefined;
     this.selectedNamespace.set(namespace);
-    this.luigiCoreService.routing().addSearchParams({ namespace }, false, true);
+    this.LuigiClient().addCoreSearchParams({ namespace }, false, true);
   }
 
   navigateToParent() {

@@ -266,6 +266,34 @@ test.describe('when reading the httpbin fails', () => {
     ]);
   });
 
+  test('respects a read-only namespace permission when a namespace is selected', async ({
+    page,
+    portalBackend,
+  }) => {
+    portalBackend.respondToAccountEntityConfig(
+      selectedAccount,
+      restMocks.accountEntityConfigWithReadonlyNamespace,
+    );
+    portalBackend.respondToHttpBinRead(
+      selectedAccount,
+      gatewayMocks.httpBinReadMissingNamespaceArgument,
+    );
+    const dashboardPath = HttpBinPage.path(
+      selectedAccount,
+      selectedHttpBin,
+      HttpBinPage.dashboard,
+    );
+
+    await page.goto(dashboardPath);
+    await expectReadFailureShown(HttpBinPage.namespaceMissingSubtitle);
+    await httpBin.namespaceSelect.click();
+    await httpBin.namespaceOption(selectedHttpBinNamespace).click();
+
+    await expect(httpBin.retryButton).not.toHaveAttribute('disabled');
+    await expect(page).toHaveURL(dashboardPath);
+    expect(httpBinReadNamespaces(portalBackend)).toEqual([undefined]);
+  });
+
   test('alerts a failed namespace read and loads the namespaces with the refresh button', async ({
     page,
     portalBackend,

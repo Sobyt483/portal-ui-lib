@@ -2515,7 +2515,7 @@ describe('DetailViewComponent template', () => {
   let envConfigServiceMock: MockedObject<EnvConfigService>;
   let accountInfoServiceMock: MockedObject<AccountInfoService>;
   let errorHandlerServiceMock: MockedObject<ErrorHandlerService>;
-  let addSearchParams: ReturnType<typeof vi.fn>;
+  let addCoreSearchParams: ReturnType<typeof vi.fn>;
   let configChanged: ReturnType<typeof vi.fn>;
   let namespaceServiceMock: MockedObject<NamespaceService>;
 
@@ -2531,7 +2531,7 @@ describe('DetailViewComponent template', () => {
     mockGatewayService = {
       resolveKcpPath: vi.fn().mockReturnValue('https://example.com'),
     };
-    addSearchParams = vi.fn();
+    addCoreSearchParams = vi.fn();
     configChanged = vi.fn();
     namespaceServiceMock = mock();
 
@@ -2544,7 +2544,7 @@ describe('DetailViewComponent template', () => {
         { provide: ErrorHandlerService, useValue: errorHandlerServiceMock },
         {
           provide: LuigiCoreService,
-          useValue: { routing: () => ({ addSearchParams }), configChanged },
+          useValue: { configChanged },
         },
         { provide: NamespaceService, useValue: namespaceServiceMock },
       ],
@@ -2575,6 +2575,7 @@ describe('DetailViewComponent template', () => {
     const showAlert = vi.fn();
     fixture.componentRef.setInput('context', context);
     fixture.componentRef.setInput('LuigiClient', {
+      addCoreSearchParams,
       linkManager: () => ({ fromContext: () => ({ navigate }) }),
       uxManager: () => ({ showAlert }),
       getActiveFeatureToggles: () => [],
@@ -2829,12 +2830,13 @@ describe('DetailViewComponent template', () => {
 
       selectNamespace(find, 'team-b');
       fixture.detectChanges();
-      expect(addSearchParams).toHaveBeenCalledWith(
+      expect(addCoreSearchParams).toHaveBeenCalledWith(
         { namespace: 'team-b' },
         false,
         true,
       );
       expect(configChanged).not.toHaveBeenCalled();
+      expect(mockResourceService.read).toHaveBeenCalledTimes(1);
       expect(find('[data-testid="generic-detail-view-retry"]').disabled).toBe(
         false,
       );
@@ -2861,7 +2863,7 @@ describe('DetailViewComponent template', () => {
       expect(find('[data-testid="generic-detail-view-retry"]').disabled).toBe(
         true,
       );
-      expect(addSearchParams).toHaveBeenLastCalledWith(
+      expect(addCoreSearchParams).toHaveBeenLastCalledWith(
         { namespace: undefined },
         false,
         true,

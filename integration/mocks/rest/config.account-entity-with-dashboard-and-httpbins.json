@@ -111,7 +111,15 @@
                 },
                 "children": []
               }
-            ]
+            ],
+            "clientPermissions": {
+              "urlParameters": {
+                "namespace": {
+                  "read": true,
+                  "write": true
+                }
+              }
+            }
           },
           {
             "entityType": "main.core_platform-mesh_io_account.orchestrate_platform-mesh_io_httpbin",
@@ -129,7 +137,15 @@
             "compound": {
               "children": []
             },
-            "children": []
+            "children": [],
+            "clientPermissions": {
+              "urlParameters": {
+                "namespace": {
+                  "read": true,
+                  "write": true
+                }
+              }
+            }
           },
           {
             "entityType": "main.core_platform-mesh_io_account.orchestrate_platform-mesh_io_httpbin",
@@ -141,7 +157,15 @@
               "selfRegistered": true,
               "type": "module"
             },
-            "children": []
+            "children": [],
+            "clientPermissions": {
+              "urlParameters": {
+                "namespace": {
+                  "read": true,
+                  "write": true
+                }
+              }
+            }
           },
           {
             "entityType": "main.core_platform-mesh_io_account.orchestrate_platform-mesh_io_httpbin",
@@ -153,7 +177,15 @@
               "selfRegistered": true,
               "type": "module"
             },
-            "children": []
+            "children": [],
+            "clientPermissions": {
+              "urlParameters": {
+                "namespace": {
+                  "read": true,
+                  "write": true
+                }
+              }
+            }
           }
         ]
       }

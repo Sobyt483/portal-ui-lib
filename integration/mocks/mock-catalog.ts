@@ -6,6 +6,14 @@ export const restMocks = {
     'rest/config.account-entity-with-dashboard.json',
   accountEntityConfigWithDashboardAndHttpBins:
     'rest/config.account-entity-with-dashboard-and-httpbins.json',
+  accountEntityConfigWithReadonlyNamespace:
+    'rest/config.account-entity-with-dashboard-and-httpbins-readonly-namespace.json',
+  accountEntityConfigWithDashboardAndSearch:
+    'rest/config.account-entity-with-dashboard-and-search.json',
+} as const;
+
+export const searchMocks = {
+  httpBinsWithTwelveSearchResults: 'search/httpbins.twelve-search-results.json',
 } as const;
 
 export const gatewayMocks = {

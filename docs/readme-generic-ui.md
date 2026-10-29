@@ -13,6 +13,22 @@ The generic ui consists of the following components:
 
 ## Configuration
 
+### Namespace permissions
+
+List and detail nodes that write or clear the core `namespace` parameter must declare:
+
+```json
+{
+  "clientPermissions": {
+    "urlParameters": {
+      "namespace": { "read": true, "write": true }
+    }
+  }
+}
+```
+
+Search List uses `~q`, `~page`, `~limit`, and `~tab` node parameters; it needs no core URL-parameter permissions. Old unprefixed search parameters are ignored.
+
 ### Generic List View
 
 In order to use the generic list view, you need to adjust the node’s `content-configuration` to include the following:
@@ -96,7 +112,7 @@ In order to use the generic list view, you need to adjust the node’s `content-
         - `"value": "/users/{context.userId}/orgs/{context.orgId}"` → multiple placeholders in one string are all resolved.
         - `"value": "{context.user.email}"` → nested paths are supported.
       - If a placeholder resolves to `undefined` or `null`, it is left literal in the output (so the user sees the placeholder rather than the string `"undefined"`) — a signal that the expected context key is missing.
-    - `"default"`: Optional boolean; when `true`, this tab is selected on initial render. If omitted on every entry, the first entry in the array is selected. On page load, a `?<property>=<value>` URL query param takes precedence over `default:` when it matches one of the entries — refreshing the page restores whichever tab the user last picked (for example, `?metadata.namespace=default` selects the tab with `property: "metadata.namespace"` and `value: "default"`).
+    - `"default"`: Optional boolean; when `true`, this tab is selected on initial render. If omitted on every entry, the first entry in the array is selected. On Search List page load, the `~tab=<slug>` node parameter takes precedence when it matches a filter label converted to lowercase with whitespace replaced by hyphens. For example, `~tab=default-namespace` restores the tab labelled `Default namespace`; an unknown slug falls back to the configured default or first tab.
   - `"baselineFilter"`: Optional array of `FieldFilterDefinition` objects that are **always** merged into every OpenSearch request, regardless of which filter tab is selected. Unlike `filters`, baseline entries are **not** rendered as tabs and are **not** written to the URL. They are invisible to the user and act as a persistent query scope.
     - Each entry has the same `"property"` and `"value"` fields as a `filters` entry.
     - `"value"` supports the same `{context.<dot.path>}` runtime interpolation as `filters`. If a placeholder cannot be resolved (the context key is missing), that baseline entry is **silently skipped** (a `console.debug` message is logged) and the request proceeds without it. No error is thrown.
@@ -805,12 +821,12 @@ A full-page list view using the SAP Fiori `ui5-dynamic-page` layout. Use it when
 **Key behaviour:**
 
 - Table is rendered via `mfp-declarative-table`, columns driven by `resourceDefinition.ui.listView.fields`.
-- Pagination is page-based (`loadMode: pager`). Current page and limit are persisted as `?page=` / `?limit=` URL query params (default values `page=1` and `limit=20` are omitted to keep URLs clean).
+- Pagination is page-based (`loadMode: pager`). Current page and limit are persisted as `~page` / `~limit` Luigi node parameters (default values `page=1` and `limit=20` are omitted). Invalid pages fall back to 1; supported limits are 5, 10, 20, 50, and 100, with 20 as the fallback. Changing the search query, filter tab, or page size resets the page to 1.
 - Data is fetched directly via `OpenSearchService` against the OpenSearch API configured in `portalContext.openSearchApiUrl`.
-- If `resourceDefinition.ui.listView.filters` is set, a tab strip is rendered above the table — one tab per filter entry. Each tab shows the item count in parentheses. The active tab is persisted as `?tab=<slug>` in the URL. See [List View Configuration](#list-view-configuration) for the full `filters` schema.
+- If `resourceDefinition.ui.listView.filters` is set, a tab strip is rendered above the table — one tab per filter entry. Each tab shows the item count in parentheses. The active tab is persisted as the `~tab=<slug>` node parameter in the URL. See [List View Configuration](#list-view-configuration) for the full `filters` schema.
 - If `resourceDefinition.ui.createView.fields` is set and the user has `create` permission, a **Create** button appears in the toolbar, which opens `pm-resource-form-modal` — a facade component wrapping `mfp-resource-form-dialog` from `@openmfp/ngx`.
 - If `resourceDefinition.readyCondition` is set, a status-alert column is prepended to the table.
-- A **search input** is rendered in the page header. The search fires only when the user presses **Enter** or clicks the search icon — it does not filter as-you-type. The current query is persisted as `?q=` in the URL; clearing the input and re-submitting removes the param. On reload, `?q=` is read and pre-populates the input. An empty or whitespace-only query is sent to OpenSearch as `q: "*"` (match all).
+- A **search input** is rendered in the page header. The search fires only when the user presses **Enter** or clicks the search icon — it does not filter as-you-type. The current query is persisted as the `~q` node parameter; clearing the input and re-submitting removes it. On reload, the desanitised node parameter restores the input, including special characters. An empty or whitespace-only query is sent to OpenSearch as `q: "*"` (match all).
 - **Error handling**: the table shows an inline error state when a request fails. A retry button is rendered; clicking it re-triggers the current list request. If the user lacks `list` permission, a 403 error is shown without making a network call.
 
 **Test IDs:**

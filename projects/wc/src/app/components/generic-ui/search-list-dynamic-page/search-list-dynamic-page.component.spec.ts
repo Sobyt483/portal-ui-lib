@@ -40,24 +40,27 @@ describe('SearchListDynamicPage', () => {
       ...overrides,
     })) as any;
 
-  const buildLuigiClient = () => {
+  const buildLuigiClient = (
+    nodeParams: Record<string, string | undefined> = {},
+  ) => {
     const navigate = vi.fn();
     return {
       _navigate: navigate,
       linkManager: () => ({ navigate }),
       uxManager: () => ({ showAlert: vi.fn() }),
       getActiveFeatureToggles: () => [],
+      getNodeParams: vi.fn().mockReturnValue(nodeParams),
+      addNodeParams: vi.fn(),
     };
   };
 
   const createComponent = (
     contextOverrides: Partial<any> = {},
-    luigiClient?: any,
+    luigiClient: any = buildLuigiClient(),
   ): ComponentFixture<SearchListDynamicPage> => {
     const f = TestBed.createComponent(SearchListDynamicPage);
     f.componentInstance.context = buildContext(contextOverrides);
-    f.componentInstance.LuigiClient = (() =>
-      luigiClient ?? buildLuigiClient()) as any;
+    f.componentRef.setInput('LuigiClient', luigiClient);
     f.detectChanges();
     return f;
   };
@@ -845,7 +848,9 @@ describe('SearchListDynamicPage', () => {
       const f = createComponent(
         {
           resourceDefinition: {
-            ui: { listView: { resourceURL: '/workspaces/{resource.metadata.name}' } },
+            ui: {
+              listView: { resourceURL: '/workspaces/{resource.metadata.name}' },
+            },
           },
         },
         lc,
@@ -1383,91 +1388,216 @@ describe('SearchListDynamicPage', () => {
     });
   });
 
-  describe('URL ?q= param management', () => {
-    let href: string;
-    const makeLocation = () => ({
-      get href() {
-        return href;
-      },
-      set href(value: string) {
-        href = new URL(value, 'http://localhost/').href;
-      },
-      get search() {
-        return new URL(href).search;
-      },
-    });
-    const historyStub = {
-      replaceState: (
-        _state: unknown,
-        _title: string,
-        url?: string | URL | null,
-      ) => {
-        if (url != null) href = new URL(String(url), 'http://localhost/').href;
+  describe('Luigi node parameter state', () => {
+    const filterContext = {
+      resourceDefinition: {
+        ui: {
+          listView: {
+            filters: [
+              { label: 'All' },
+              {
+                label: 'Active resources',
+                property: 'status',
+                value: 'active',
+              },
+              {
+                label: 'Inactive',
+                property: 'status',
+                value: 'inactive',
+                default: true,
+              },
+            ],
+          },
+        },
       },
     };
-    const params = () => new URL(href).searchParams;
 
-    beforeEach(() => {
-      href = 'http://localhost/';
-      vi.stubGlobal('location', makeLocation());
-      vi.stubGlobal('history', historyStub);
+    it('waits until required inputs are set before reading node parameters', () => {
+      const client = buildLuigiClient();
+      const freshFixture = TestBed.createComponent(SearchListDynamicPage);
+      expect(client.getNodeParams).not.toHaveBeenCalled();
+
+      freshFixture.componentRef.setInput('context', buildContext()());
+      freshFixture.componentRef.setInput('LuigiClient', client);
+      freshFixture.detectChanges();
+
+      expect(client.getNodeParams).toHaveBeenCalledWith(true);
     });
 
-    afterEach(() => {
-      vi.unstubAllGlobals();
-    });
-
-    it('writes ?q= to the URL when searchKey is non-empty', () => {
-      mockOpenSearchService.listResources.mockReturnValue(
-        listSubject.asObservable(),
-      );
-      component.searchKey.set('widgets');
-      component.list();
-
-      expect(params().get('q')).toBe('widgets');
-    });
-
-    it('strips ?q= from the URL when searchKey is empty', () => {
-      href = 'http://localhost/?q=old-query';
-      mockOpenSearchService.listResources.mockReturnValue(
-        listSubject.asObservable(),
-      );
-      component.searchKey.set('');
-      component.list();
-
-      expect(params().has('q')).toBe(false);
-    });
-  });
-
-  describe('URL ?q= seeding on init', () => {
-    it('seeds searchControl value and searchKey from the URL ?q= param', () => {
-      let href = 'http://localhost/?q=seeded-value';
-      vi.stubGlobal('location', {
-        get href() {
-          return href;
-        },
-        get search() {
-          return new URL(href).search;
-        },
+    it('restores the query, pagination and selected tab from desanitised node parameters', () => {
+      const query = 'widgets <active> "quoted" / &';
+      const client = buildLuigiClient({
+        q: query,
+        page: '3',
+        limit: '10',
+        tab: 'active-resources',
       });
-      vi.stubGlobal('history', {
-        replaceState: (
-          _state: unknown,
-          _title: string,
-          url?: string | URL | null,
-        ) => {
-          if (url != null)
-            href = new URL(String(url), 'http://localhost/').href;
-        },
+      const freshFixture = createComponent(filterContext, client);
+      const freshComponent = freshFixture.componentInstance;
+
+      expect(client.getNodeParams).toHaveBeenCalledWith(true);
+      expect(freshComponent.searchControl().value()).toBe(query);
+      expect(freshComponent.searchKey()).toBe(query);
+      expect(freshComponent.currentPage()).toBe(3);
+      expect(freshComponent.paginationLimit()).toBe(10);
+      expect(freshComponent.selectedSearchFilter()?.label).toBe(
+        'Active resources',
+      );
+      expect(mockOpenSearchService.listResources).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          q: query,
+          page: 3,
+          limit: 10,
+          filters: { status: 'active' },
+        }),
+      );
+      expect(client.addNodeParams).not.toHaveBeenCalled();
+    });
+
+    it.each([undefined, '', '0', '-1', '1.5', 'invalid', 'Infinity'])(
+      'uses the first page for invalid page %s',
+      (page) => {
+        const freshFixture = createComponent({}, buildLuigiClient({ page }));
+        expect(freshFixture.componentInstance.currentPage()).toBe(1);
+        expect(mockOpenSearchService.listResources).toHaveBeenLastCalledWith(
+          expect.anything(),
+          expect.objectContaining({ page: 1 }),
+        );
+      },
+    );
+
+    it.each([undefined, '', '0', '-1', '15', 'invalid'])(
+      'uses the default page size for unsupported limit %s',
+      (limit) => {
+        const freshFixture = createComponent({}, buildLuigiClient({ limit }));
+        expect(freshFixture.componentInstance.paginationLimit()).toBe(20);
+      },
+    );
+
+    it.each(['5', '10', '20', '50', '100'])(
+      'restores the supported page size %s',
+      (limit) => {
+        const freshFixture = createComponent({}, buildLuigiClient({ limit }));
+        expect(freshFixture.componentInstance.paginationLimit()).toBe(
+          Number(limit),
+        );
+      },
+    );
+
+    it('keeps the configured default tab when the stored tab is unknown', () => {
+      const freshFixture = createComponent(
+        filterContext,
+        buildLuigiClient({ tab: 'removed-tab' }),
+      );
+      expect(freshFixture.componentInstance.selectedSearchFilter()?.label).toBe(
+        'Inactive',
+      );
+    });
+
+    it('does not seed state from core search parameters', () => {
+      history.replaceState(
+        null,
+        '',
+        '/?q=core-query&page=4&limit=100&tab=active-resources&namespace=team-a',
+      );
+      const client = buildLuigiClient();
+      const freshFixture = createComponent({}, client);
+
+      expect(freshFixture.componentInstance.searchKey()).toBe('');
+      expect(freshFixture.componentInstance.currentPage()).toBe(1);
+      expect(freshFixture.componentInstance.paginationLimit()).toBe(20);
+      expect(client.addNodeParams).not.toHaveBeenCalled();
+    });
+
+    it('writes only owned node parameters without directly changing the core URL', () => {
+      history.replaceState(null, '', '/?namespace=team-a');
+      const client = buildLuigiClient({ unrelated: 'keep-me' });
+      const freshFixture = createComponent({}, client);
+      const freshComponent = freshFixture.componentInstance;
+      const replaceState = vi.spyOn(history, 'replaceState');
+      freshComponent.searchKey.set('widgets');
+      freshComponent.currentPage.set(3);
+      freshComponent.paginationLimit.set(10);
+      freshComponent.list();
+
+      expect(client.addNodeParams).toHaveBeenCalledWith(
+        { q: 'widgets', page: '3', limit: '10', tab: undefined },
+        false,
+      );
+      expect(client.getNodeParams()).toEqual({ unrelated: 'keep-me' });
+      expect(window.location.search).toBe('?namespace=team-a');
+      expect(replaceState).not.toHaveBeenCalled();
+      replaceState.mockRestore();
+    });
+
+    it('does not request another Luigi configuration update when its parameters already match', () => {
+      const client = buildLuigiClient({
+        q: 'widgets',
+        page: '2',
+        limit: '10',
+        unrelated: 'keep-me',
       });
+      const freshFixture = createComponent({}, client);
+      freshFixture.componentInstance.list();
 
-      // Create a fresh component after stubbing so readUrlSearchParam picks up ?q=
-      const f = createComponent();
+      expect(client.addNodeParams).not.toHaveBeenCalled();
+      client.getNodeParams.mockReturnValue({
+        q: 'changed-in-shell',
+        page: '2',
+        limit: '10',
+      });
+      freshFixture.componentInstance.list();
+      expect(client.addNodeParams).toHaveBeenCalledOnce();
+    });
 
-      expect(f.componentInstance.searchControl().value()).toBe('seeded-value');
-      expect(f.componentInstance.searchKey()).toBe('seeded-value');
+    it('clears stale query and page parameters when the search is cleared', () => {
+      const client = buildLuigiClient({
+        q: 'old-query',
+        page: '3',
+        limit: '10',
+      });
+      const freshFixture = createComponent({}, client);
+      freshFixture.componentInstance.clearSearch();
 
-      vi.unstubAllGlobals();
+      expect(freshFixture.componentInstance.searchControl().value()).toBe('');
+      expect(freshFixture.componentInstance.searchKey()).toBe('');
+      expect(freshFixture.componentInstance.currentPage()).toBe(1);
+      expect(client.addNodeParams).toHaveBeenCalledWith(
+        { q: undefined, page: undefined, limit: '10', tab: undefined },
+        false,
+      );
+    });
+
+    it('clears stale page parameters when the query or page size changes', () => {
+      const client = buildLuigiClient({ q: 'old-query', page: '3' });
+      const freshFixture = createComponent({}, client);
+      const freshComponent = freshFixture.componentInstance;
+      freshComponent.searchControl().value.set('new-query');
+      freshComponent.submitSearch();
+      expect(client.addNodeParams).toHaveBeenLastCalledWith(
+        { q: 'new-query', page: undefined, limit: undefined, tab: undefined },
+        false,
+      );
+
+      freshComponent.currentPage.set(2);
+      freshComponent.onLimitChange(10);
+      expect(client.addNodeParams).toHaveBeenLastCalledWith(
+        { q: 'new-query', page: undefined, limit: '10', tab: undefined },
+        false,
+      );
+    });
+
+    it('persists the tab slug and resets the page when a different tab is selected', () => {
+      const client = buildLuigiClient({ page: '3', tab: 'active-resources' });
+      const freshFixture = createComponent(filterContext, client);
+      (freshFixture.componentInstance as any).onFilterTabSelect(2);
+
+      expect(freshFixture.componentInstance.currentPage()).toBe(1);
+      expect(client.addNodeParams).toHaveBeenLastCalledWith(
+        { q: undefined, page: undefined, limit: undefined, tab: 'inactive' },
+        false,
+      );
     });
   });
 

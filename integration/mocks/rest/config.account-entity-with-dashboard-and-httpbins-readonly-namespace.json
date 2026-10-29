@@ -1,0 +1,194 @@
+{
+  "status": 200,
+  "body": {
+    "entityContext": {
+      "id": "{{accountName}}",
+      "policies": ["create", "delete", "get", "list", "update", "watch"]
+    },
+    "providers": [
+      {
+        "name": "platform-mesh-system",
+        "displayName": "",
+        "creationTimestamp": "",
+        "nodeContext": {
+          "nodesPermissions": []
+        },
+        "nodes": [
+          {
+            "entityType": "main.core_platform-mesh_io_account",
+            "pathSegment": "dashboard",
+            "label": "Dashboard",
+            "icon": "bbyd-dashboard",
+            "order": 100,
+            "url": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "viewUrl": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "webcomponent": {
+              "selfRegistered": true,
+              "type": "module"
+            },
+            "defineEntity": {
+              "id": "dashboard"
+            },
+            "compound": {
+              "children": []
+            },
+            "children": []
+          },
+          {
+            "pathSegment": "orchestrate_platform-mesh_io_httpbins",
+            "navigationContext": "orchestrate_platform-mesh_io_httpbins",
+            "label": "Http Bins",
+            "icon": "paint-bucket",
+            "order": 800,
+            "entityType": "main.core_platform-mesh_io_account",
+            "loadingIndicator": {
+              "enabled": false
+            },
+            "keepSelectedForChildren": true,
+            "url": "/assets/platform-mesh-portal-ui-wc.js#generic-list-view",
+            "viewUrl": "/assets/platform-mesh-portal-ui-wc.js#generic-list-view",
+            "webcomponent": {
+              "selfRegistered": true,
+              "type": "module"
+            },
+            "context": {
+              "resourceDefinition": {
+                "apiGroup": "orchestrate_platform_mesh_io",
+                "entityCollection": "HttpBins",
+                "version": "v1alpha1",
+                "entity": "HttpBin",
+                "scope": "Namespaced",
+                "namespace": null,
+                "readyCondition": {
+                  "jsonPathExpression": "status.ready",
+                  "property": ["status.ready"]
+                },
+                "ui": {
+                  "listView": {
+                    "fields": [
+                      {
+                        "label": "Name",
+                        "property": "metadata.name"
+                      },
+                      {
+                        "label": "Ready",
+                        "property": "status.ready",
+                        "uiSettings": {
+                          "displayAs": "boolIcon"
+                        }
+                      }
+                    ]
+                  },
+                  "detailView": {
+                    "fields": [
+                      {
+                        "label": "Name",
+                        "property": "metadata.name"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "children": [
+              {
+                "pathSegment": ":httpbinId",
+                "hideFromNav": true,
+                "keepSelectedForChildren": false,
+                "defineEntity": {
+                  "id": "orchestrate_platform-mesh_io_httpbin",
+                  "contextKey": "httpbinId",
+                  "graphqlEntity": {
+                    "group": "orchestrate_platform-mesh_io",
+                    "version": "v1alpha1",
+                    "kind": "HttpBin",
+                    "query": "{ metadata { name } }"
+                  }
+                },
+                "context": {
+                  "httpbinId": ":httpbinId",
+                  "resourceId": ":httpbinId"
+                },
+                "children": []
+              }
+            ],
+            "clientPermissions": {
+              "urlParameters": {
+                "namespace": {
+                  "read": true,
+                  "write": false
+                }
+              }
+            }
+          },
+          {
+            "entityType": "main.core_platform-mesh_io_account.orchestrate_platform-mesh_io_httpbin",
+            "pathSegment": "dashboard",
+            "label": "Dashboard",
+            "url": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "viewUrl": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "webcomponent": {
+              "selfRegistered": true,
+              "type": "module"
+            },
+            "defineEntity": {
+              "id": "dashboard"
+            },
+            "compound": {
+              "children": []
+            },
+            "children": [],
+            "clientPermissions": {
+              "urlParameters": {
+                "namespace": {
+                  "read": true,
+                  "write": false
+                }
+              }
+            }
+          },
+          {
+            "entityType": "main.core_platform-mesh_io_account.orchestrate_platform-mesh_io_httpbin",
+            "pathSegment": "details",
+            "label": "Details",
+            "url": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "viewUrl": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "webcomponent": {
+              "selfRegistered": true,
+              "type": "module"
+            },
+            "children": [],
+            "clientPermissions": {
+              "urlParameters": {
+                "namespace": {
+                  "read": true,
+                  "write": false
+                }
+              }
+            }
+          },
+          {
+            "entityType": "main.core_platform-mesh_io_account.orchestrate_platform-mesh_io_httpbin",
+            "pathSegment": "status",
+            "label": "Status",
+            "url": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "viewUrl": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "webcomponent": {
+              "selfRegistered": true,
+              "type": "module"
+            },
+            "children": [],
+            "clientPermissions": {
+              "urlParameters": {
+                "namespace": {
+                  "read": true,
+                  "write": false
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

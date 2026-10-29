@@ -1,0 +1,103 @@
+{
+  "status": 200,
+  "body": {
+    "entityContext": {
+      "id": "{{accountName}}",
+      "policies": ["create", "delete", "get", "list", "update", "watch"]
+    },
+    "providers": [
+      {
+        "name": "platform-mesh-system",
+        "displayName": "",
+        "creationTimestamp": "",
+        "nodeContext": {
+          "nodesPermissions": []
+        },
+        "nodes": [
+          {
+            "entityType": "main.core_platform-mesh_io_account",
+            "pathSegment": "dashboard",
+            "label": "Dashboard",
+            "icon": "bbyd-dashboard",
+            "order": 100,
+            "url": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "viewUrl": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "webcomponent": {
+              "selfRegistered": true,
+              "type": "module"
+            },
+            "defineEntity": {
+              "id": "dashboard"
+            },
+            "compound": {
+              "children": []
+            },
+            "children": []
+          },
+          {
+            "pathSegment": "search-httpbins",
+            "navigationContext": "search-httpbins",
+            "label": "Search Http Bins",
+            "icon": "paint-bucket",
+            "order": 800,
+            "entityType": "main.core_platform-mesh_io_account",
+            "loadingIndicator": {
+              "enabled": false
+            },
+            "keepSelectedForChildren": true,
+            "url": "/assets/platform-mesh-portal-ui-wc.js#search-list-dynamic-page",
+            "viewUrl": "/assets/platform-mesh-portal-ui-wc.js#search-list-dynamic-page",
+            "webcomponent": {
+              "selfRegistered": true,
+              "type": "module"
+            },
+            "context": {
+              "resourceDefinition": {
+                "apiGroup": "orchestrate_platform_mesh_io",
+                "entityCollection": "HttpBins",
+                "version": "v1alpha1",
+                "entity": "HttpBin",
+                "scope": "Namespaced",
+                "namespace": null,
+                "ui": {
+                  "listView": {
+                    "fields": [
+                      {
+                        "label": "Name",
+                        "property": "metadata.name"
+                      },
+                      {
+                        "label": "Namespace",
+                        "property": "metadata.namespace"
+                      }
+                    ],
+                    "filters": [
+                      {
+                        "label": "All"
+                      },
+                      {
+                        "label": "Team A",
+                        "property": "metadata.namespace",
+                        "value": "team-a"
+                      },
+                      {
+                        "label": "Team B",
+                        "property": "metadata.namespace",
+                        "value": "team-b"
+                      }
+                    ]
+                  }
+                }
+              },
+              "portalContext": {
+                "crdGatewayApiUrl": "{{portalOrigin}}/api/kubernetes-graphql-gateway/root:orgs:test-org/graphql",
+                "openSearchApiUrl": "{{portalOrigin}}/api/search"
+              }
+            },
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}
