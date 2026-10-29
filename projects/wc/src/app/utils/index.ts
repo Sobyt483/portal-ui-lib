@@ -6,5 +6,4 @@ export * from './forms';
 export * from './proccess-fields';
 export * from './resolve-context-placeholders';
 export * from './route-namespace';
-export * from './url-params';
 export * from './wc';

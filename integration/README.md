@@ -350,6 +350,12 @@ Every test can be run on its own in debug mode. The `-g` pattern is the test's i
   npx playwright test --config integration/playwright.config.ts integration/tests/platform-mesh/httpbin-navigation.spec.ts -g 'when reading the httpbin fails asks for a namespace before retrying when the namespace parameter is missing' --debug
   ```
 
+- when reading the httpbin fails › respects a read-only namespace permission when a namespace is selected
+
+  ```bash
+  npx playwright test --config integration/playwright.config.ts integration/tests/platform-mesh/httpbin-navigation.spec.ts -g 'when reading the httpbin fails respects a read-only namespace permission when a namespace is selected' --debug
+  ```
+
 - when reading the httpbin fails › alerts a failed namespace read and loads the namespaces with the refresh button
 
   ```bash
@@ -580,4 +586,22 @@ Every test can be run on its own in debug mode. The `-g` pattern is the test's i
 
   ```bash
   npx playwright test --config integration/playwright.config.ts integration/tests/platform-mesh/search-list.spec.ts -g 'when the user may not list the resources shows the 403 error without a retry and without a search request' --debug
+  ```
+
+- search list node parameters › restores search text, tab, page and limit from node parameters after reload
+
+  ```bash
+  npx playwright test --config integration/playwright.config.ts integration/tests/platform-mesh/search-list.spec.ts -g 'search list node parameters restores search text, tab, page and limit from node parameters after reload' --debug
+  ```
+
+- search list node parameters › resets pagination on search, tab, limit and clear while preserving core and unrelated node parameters
+
+  ```bash
+  npx playwright test --config integration/playwright.config.ts integration/tests/platform-mesh/search-list.spec.ts -g 'search list node parameters resets pagination on search, tab, limit and clear while preserving core and unrelated node parameters' --debug
+  ```
+
+- search list node parameters › uses defaults for invalid pagination and tab without rewriting canonical node parameters
+
+  ```bash
+  npx playwright test --config integration/playwright.config.ts integration/tests/platform-mesh/search-list.spec.ts -g 'search list node parameters uses defaults for invalid pagination and tab without rewriting canonical node parameters' --debug
   ```

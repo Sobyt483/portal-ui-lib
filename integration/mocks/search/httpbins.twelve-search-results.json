@@ -1,0 +1,202 @@
+{
+  "status": 200,
+  "body": {
+    "results": [
+      {
+        "id": "httpbin-001",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-001"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-a"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-002",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-002"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-b"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-003",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-003"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-a"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-004",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-004"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-b"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-005",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-005"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-a"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-006",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-006"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-b"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-007",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-007"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-a"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-008",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-008"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-b"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-009",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-009"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-a"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-010",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-010"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-b"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-011",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-011"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-a"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      },
+      {
+        "id": "httpbin-012",
+        "score": 1,
+        "kind": "HttpBin",
+        "source": {
+          "default_fields": {
+            "metadata.name": "httpbin-012"
+          },
+          "filterable_fields": {
+            "metadata.namespace": "team-b"
+          },
+          "semantic_fields": {
+            "spec.description": "httpbin <demo> \"quoted\" / &"
+          }
+        }
+      }
+    ],
+    "source": "os",
+    "totalCount": 12,
+    "nextCursor": ""
+  }
+}

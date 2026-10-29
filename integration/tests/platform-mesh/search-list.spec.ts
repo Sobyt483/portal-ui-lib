@@ -6,13 +6,16 @@ import {
   searchMocks,
 } from '../../mocks/mock-catalog.ts';
 import { AccountDashboardPage } from '../../pages/account-dashboard.page.ts';
+import { AccountsListPage } from '../../pages/accounts-list.page.ts';
 import { ErrorPage } from '../../pages/error.page.ts';
 import type { ErrorCode } from '../../pages/error.page.ts';
+import { OverviewPage } from '../../pages/overview.page.ts';
 import { PortalShell } from '../../pages/portal-shell.ts';
 import { SearchListPage } from '../../pages/search-list.page.ts';
 import type { Page } from '@playwright/test';
 
 const selectedAccount = 'account-gamma';
+const specialQuery = 'httpbin <demo> "quoted" / &';
 const listedWidgets = ['widget-alpha', 'widget-beta'];
 const accountNavigation = [
   AccountDashboardPage.navigation,
@@ -141,7 +144,7 @@ test.describe('search list page', () => {
         'bad:query',
       );
       await expect(page).toHaveURL(
-        (url) => url.searchParams.get('q') === 'bad:query',
+        (url) => url.searchParams.get('~q') === 'bad:query',
       );
       expect(searchTerms(portalBackend)).toContain('bad:query');
     });
@@ -162,7 +165,7 @@ test.describe('search list page', () => {
       await expectWidgetsShown();
       await expect(searchList.errorState).toHaveCount(0);
       await expect(page).toHaveURL(
-        (url) => url.searchParams.get('q') === 'widget',
+        (url) => url.searchParams.get('~q') === 'widget',
       );
     });
 
@@ -181,7 +184,7 @@ test.describe('search list page', () => {
 
       await expectWidgetsShown();
       await expect(searchList.searchInput.locator('input')).toHaveValue('');
-      await expect(page).toHaveURL((url) => !url.searchParams.has('q'));
+      await expect(page).toHaveURL((url) => !url.searchParams.has('~q'));
     });
 
     test('recovers from a failing term opened from the URL', async ({
@@ -189,7 +192,7 @@ test.describe('search list page', () => {
       portalBackend,
     }) => {
       portalBackend.respondToSearch(searchErrorMocks.http400InvalidQuery);
-      await page.goto(`${SearchListPage.path(selectedAccount)}?q=bad:query`);
+      await page.goto(`${SearchListPage.path(selectedAccount)}?~q=bad:query`);
       await expect(errorPage.subtitle).toHaveText(invalidQueryDetail);
       await expect(searchList.searchInput.locator('input')).toHaveValue(
         'bad:query',
@@ -257,3 +260,171 @@ test.describe('search list page', () => {
       .map((request) => request.searchTerm);
   }
 });
+
+test.describe('search list node parameters', () => {
+  let searchList: SearchListPage;
+
+  test.beforeEach(async ({ page, portalBackend }) => {
+    searchList = new SearchListPage(page);
+    const portalShell = new PortalShell(page);
+    const accountsList = new AccountsListPage(page);
+    const dashboard = new AccountDashboardPage(page);
+    portalBackend.respondToAccountEntityConfig(
+      selectedAccount,
+      restMocks.accountEntityConfigWithDashboardAndSearch,
+    );
+    portalBackend.respondToSearch(searchMocks.httpBinsWithTwelveSearchResults);
+
+    await portalShell.open();
+    await expect(page).toHaveURL(OverviewPage.path);
+    await portalShell.navigationItem(AccountsListPage.navigation).click();
+    await accountsList.openAccount(selectedAccount);
+    await expect(dashboard.field('spec.displayName')).toContainText(
+      `Display name of ${selectedAccount}`,
+    );
+    await expect
+      .poll(() => portalShell.renderedViews())
+      .toEqual([AccountDashboardPage.viewName]);
+    await portalShell.navigationItem(SearchListPage.httpBinsNavigation).click();
+    await expect(searchList.resourceRow('httpbin-001', 'team-a')).toBeVisible();
+  });
+
+  test('restores search text, tab, page and limit from node parameters after reload', async ({
+    page,
+    portalBackend,
+  }) => {
+    const params = {
+      namespace: 'team-b',
+      '~q': specialQuery,
+      '~page': '2',
+      '~limit': '5',
+      '~tab': 'team-b',
+      '~other': 'preserved',
+    };
+    await page.goto(
+      `${SearchListPage.httpBinsPath(selectedAccount)}?${new URLSearchParams(params)}`,
+    );
+
+    for (const reload of [false, true]) {
+      if (reload) await page.reload();
+      await expect(searchList.searchInput.locator('input')).toHaveValue(
+        specialQuery,
+      );
+      await expect(searchList.itemsPerPage).toHaveText('5');
+      await expect(searchList.tab('Team B', 6)).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+      await expect(
+        searchList.resourceRow('httpbin-012', 'team-b'),
+      ).toBeVisible();
+      await expectParams(page, params);
+      expect(
+        portalBackend
+          .requestsTo('searchResources')
+          .filter((request) => request.search?.limit !== 1)
+          .at(-1)?.search,
+      ).toEqual({
+        q: specialQuery,
+        page: 2,
+        limit: 5,
+        resource: 'HttpBins',
+        filters: { 'metadata.namespace': 'team-b' },
+      });
+    }
+  });
+
+  test('resets pagination on search, tab, limit and clear while preserving core and unrelated node parameters', async ({
+    page,
+    portalBackend,
+  }) => {
+    const retained = { namespace: 'team-a', '~other': 'preserved' };
+    await page.goto(
+      `${SearchListPage.httpBinsPath(selectedAccount)}?${new URLSearchParams({ ...retained, '~tab': 'all' })}`,
+    );
+    await expect(searchList.resourceRow('httpbin-001', 'team-a')).toBeVisible();
+    await searchList.selectLimit(5);
+    await searchList.selectPage(2);
+    await expectParams(page, {
+      ...retained,
+      '~tab': 'all',
+      '~limit': '5',
+      '~page': '2',
+    });
+
+    await searchList.search('httpbin');
+    await expectParams(page, {
+      ...retained,
+      '~tab': 'all',
+      '~limit': '5',
+      '~q': 'httpbin',
+    });
+    await searchList.selectPage(2);
+    await searchList.tab('Team B', 6).click();
+    await expectParams(page, {
+      ...retained,
+      '~tab': 'team-b',
+      '~limit': '5',
+      '~q': 'httpbin',
+    });
+    await expect(searchList.resourceRow('httpbin-002', 'team-b')).toBeVisible();
+
+    await searchList.selectPage(2);
+    await searchList.clearSearchIcon.click();
+    await expectParams(page, { ...retained, '~tab': 'team-b', '~limit': '5' });
+    await expect(searchList.searchInput.locator('input')).toHaveValue('');
+    await searchList.selectPage(2);
+    await searchList.selectLimit(10);
+    await expectParams(page, { ...retained, '~tab': 'team-b', '~limit': '10' });
+    await expect(searchList.resourceRow('httpbin-012', 'team-b')).toBeVisible();
+    expect(
+      portalBackend
+        .requestsTo('searchResources')
+        .filter((request) => request.search?.limit !== 1)
+        .at(-1)?.search,
+    ).toEqual({
+      q: '*',
+      page: 1,
+      limit: 10,
+      resource: 'HttpBins',
+      filters: { 'metadata.namespace': 'team-b' },
+    });
+  });
+
+  test('uses defaults for invalid pagination and tab without rewriting canonical node parameters', async ({
+    page,
+    portalBackend,
+  }) => {
+    const retained = { namespace: 'team-b', '~other': 'preserved' };
+    await page.goto(
+      `${SearchListPage.httpBinsPath(selectedAccount)}?${new URLSearchParams({ ...retained, '~page': '0', '~limit': '3', '~tab': 'unknown' })}`,
+    );
+    await expectParams(page, { ...retained, '~tab': 'all' });
+    await expect(searchList.resourceRow('httpbin-012', 'team-b')).toBeVisible();
+    await expect(searchList.itemsPerPage).toHaveText('20');
+    await expect(searchList.tab('All', 12)).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    const beforeReload = portalBackend.requestsTo('searchResources').length;
+    await page.reload();
+    await expect(searchList.resourceRow('httpbin-012', 'team-b')).toBeVisible();
+    await expect(searchList.tab('Team B', 6)).toBeVisible();
+    await expectParams(page, { ...retained, '~tab': 'all' });
+    expect(
+      portalBackend.requestsTo('searchResources').slice(beforeReload),
+    ).toHaveLength(4);
+  });
+});
+
+async function expectParams(
+  page: Page,
+  params: Record<string, string>,
+): Promise<void> {
+  await expect(page).toHaveURL(
+    (url) =>
+      JSON.stringify(Object.fromEntries([...url.searchParams].sort())) ===
+      JSON.stringify(Object.fromEntries(Object.entries(params).sort())),
+  );
+}

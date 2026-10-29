@@ -40,11 +40,12 @@ describe('ResourceTableCard', () => {
       },
     }) as any;
 
-  const makeLuigiClient = (navSpy = vi.fn()) =>
+  const makeLuigiClient = (navSpy = vi.fn(), addCoreSearchParams = vi.fn()) =>
     (() => ({
       linkManager: () => ({ navigate: navSpy }),
       uxManager: () => ({ showAlert: vi.fn() }),
       getNodeParams: vi.fn(),
+      addCoreSearchParams,
     })) as any;
 
   beforeEach(() => {
@@ -240,34 +241,46 @@ describe('ResourceTableCard', () => {
   describe('Navigation', () => {
     it('should navigate to resource for namespaced resource', () => {
       const navSpy = vi.fn();
-      history.replaceState(null, '', '/?namespace=old&view=list');
+      const addCoreSearchParams = vi.fn();
 
       const newFixture = TestBed.createComponent(ResourceTableCard);
       const newComponent = newFixture.componentInstance;
       newComponent.context = makeContext({ scope: 'Namespaced' });
-      newComponent.LuigiClient = makeLuigiClient(navSpy);
+      newComponent.LuigiClient = makeLuigiClient(navSpy, addCoreSearchParams);
       newFixture.detectChanges();
 
       newComponent.navigateToResource({
         metadata: { name: 'res1', namespace: 'test-namespace' },
       } as any);
 
-      expect(window.location.search).toContain('namespace=test-namespace');
-      expect(window.location.search).toContain('view=list');
+      expect(addCoreSearchParams).toHaveBeenCalledWith(
+        { namespace: 'test-namespace' },
+        false,
+        true,
+      );
+      expect(addCoreSearchParams.mock.invocationCallOrder[0]).toBeLessThan(
+        navSpy.mock.invocationCallOrder[0],
+      );
       expect(navSpy).toHaveBeenCalledWith('res1');
     });
 
     it('should clear namespace param for cluster-scoped resource', () => {
       const navSpy = vi.fn();
-      history.replaceState(null, '', '/?namespace=old&view=list');
-      component.LuigiClient = makeLuigiClient(navSpy);
+      const addCoreSearchParams = vi.fn();
+      component.LuigiClient = makeLuigiClient(navSpy, addCoreSearchParams);
 
       component.navigateToResource({
         metadata: { name: 'res1', namespace: 'test-namespace' },
       } as any);
 
-      expect(window.location.search).not.toContain('namespace=');
-      expect(window.location.search).toContain('view=list');
+      expect(addCoreSearchParams).toHaveBeenCalledWith(
+        { namespace: undefined },
+        false,
+        true,
+      );
+      expect(addCoreSearchParams.mock.invocationCallOrder[0]).toBeLessThan(
+        navSpy.mock.invocationCallOrder[0],
+      );
       expect(navSpy).toHaveBeenCalledWith('res1');
     });
 
