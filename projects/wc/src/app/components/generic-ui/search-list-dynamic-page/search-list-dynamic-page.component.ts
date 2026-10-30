@@ -346,12 +346,7 @@ export class SearchListDynamicPage implements OnInit {
       limit: limit !== 20 ? String(limit) : undefined,
       tab: filter ? this.tabSlug(filter) : undefined,
     };
-    const currentNodeParams = this.getNodeParams();
-    if (
-      Object.entries(nodeParams).some(
-        ([key, value]) => currentNodeParams[key] !== value,
-      )
-    ) {
+    if (this.shouldUpdateNodeParams(nodeParams)) {
       this.LuigiClient().addNodeParams(nodeParams, false);
     }
 
@@ -525,6 +520,15 @@ export class SearchListDynamicPage implements OnInit {
       (candidate) => this.tabSlug(candidate) === params.tab,
     );
     if (filter) this.selectedSearchFilter.set(filter);
+  }
+
+  private shouldUpdateNodeParams(
+    nodeParams: Record<string, string | undefined>,
+  ): boolean {
+    const currentNodeParams = this.getNodeParams();
+    return Object.entries(nodeParams).some(
+      ([key, value]) => currentNodeParams[key] !== value,
+    );
   }
 
   private getNodeParams(): Record<string, string | undefined> {
