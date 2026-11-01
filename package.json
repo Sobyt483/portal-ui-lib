@@ -59,7 +59,7 @@
     "@playwright/test": "1.63.0",
     "@storybook/angular": "10.6.1",
     "@storybook/angular-vite": "10.6.1",
-    "@types/node": "24.13.3",
+    "@types/node": "26.6.5",
     "@vitest/coverage-v8": "5.0.3",
     "cpx2": "9.0.0",
     "esbuild": "0.28.2",
