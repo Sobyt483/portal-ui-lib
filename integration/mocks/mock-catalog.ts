@@ -14,10 +14,15 @@ export const restMocks = {
     'rest/config.account-entity-with-search-list-without-list-permission.json',
   accountEntityConfigWithoutNodes:
     'rest/config.account-entity-without-nodes.json',
+  accountEntityConfigWithReadonlyNamespace:
+    'rest/config.account-entity-with-dashboard-and-httpbins-readonly-namespace.json',
+  accountEntityConfigWithDashboardAndSearch:
+    'rest/config.account-entity-with-dashboard-and-search.json',
 } as const;
 
 export const searchMocks = {
   resultsWithTwoWidgets: 'search/results.two-widgets.json',
+  httpBinsWithTwelveSearchResults: 'search/httpbins.twelve-search-results.json',
 } as const;
 
 export const searchErrorMocks = {

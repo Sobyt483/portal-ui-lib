@@ -16,7 +16,7 @@ Run `npm run build` to build the project. The build artifacts will be stored in 
 
 ### Running unit tests
 
-Run `npm run test` to execute the unit tests via Jest.
+Run `npm run test:lib` or `npm run test:wc` to execute unit tests with Vitest and coverage. `npm run test` runs both projects followed by the Playwright integration tests.
 
 ## Generic UI Feature
 

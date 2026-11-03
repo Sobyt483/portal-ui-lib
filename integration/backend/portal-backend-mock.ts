@@ -8,11 +8,34 @@ import type { Page, Route } from '@playwright/test';
 export type BackendEndpoint =
   GatewayOperation | 'accountEntityConfig' | 'searchResources';
 
+export interface SearchRequest {
+  q: string;
+  resource: string | undefined;
+  page: number;
+  limit: number;
+  filters: Record<string, string>;
+}
+
+interface SearchResponse {
+  results: {
+    id: string;
+    source: {
+      default_fields: Record<string, string>;
+      filterable_fields: Record<string, string>;
+      semantic_fields: Record<string, string>;
+    };
+  }[];
+  source: string;
+  totalCount: number;
+  nextCursor: string;
+}
+
 export interface BackendRequest {
   endpoint: BackendEndpoint;
   accountName: string | undefined;
   namespace?: string;
   searchTerm?: string;
+  search?: SearchRequest;
 }
 
 const accountEntityConfigPath = '/rest/config/core_platform-mesh_io_account';
@@ -147,17 +170,12 @@ export class PortalBackendMock {
         route,
         this.accountEntityConfigOverrides.get(accountName) ??
           restMocks.accountEntityConfigWithDashboard,
-        { accountName },
+        { accountName, portalOrigin: this.portalOrigin },
       );
     }
 
     if (request.method() === 'GET' && url.pathname === searchApiPath) {
-      this.requests.push({
-        endpoint: 'searchResources',
-        accountName: undefined,
-        searchTerm: url.searchParams.get('q') ?? undefined,
-      });
-      return this.fulfill(route, this.searchResponse);
+      return this.handleResourceSearch(route, url);
     }
 
     if (request.method() === 'POST' && isGatewayPath(url.pathname)) {
@@ -169,6 +187,63 @@ export class PortalBackendMock {
     }
 
     return route.fallback();
+  }
+
+  private async handleResourceSearch(route: Route, url: URL): Promise<void> {
+    const search: SearchRequest = {
+      q: url.searchParams.get('q') ?? '*',
+      resource: url.searchParams.get('resource') ?? undefined,
+      page: Number(url.searchParams.get('page')),
+      limit: Number(url.searchParams.get('limit')),
+      filters: Object.fromEntries(
+        [...url.searchParams]
+          .filter(([key]) => key.startsWith('filter.'))
+          .map(([key, value]) => [key.slice('filter.'.length), value]),
+      ),
+    };
+    this.requests.push({
+      endpoint: 'searchResources',
+      accountName: undefined,
+      searchTerm: url.searchParams.get('q') ?? undefined,
+      search,
+    });
+
+    if (this.searchResponse !== searchMocks.httpBinsWithTwelveSearchResults) {
+      return this.fulfill(route, this.searchResponse);
+    }
+
+    const response = loadMockResponse(this.searchResponse);
+    const body = response.body as SearchResponse;
+    const matches = body.results.filter((resource) => {
+      const fields = {
+        ...resource.source.default_fields,
+        ...resource.source.filterable_fields,
+        ...resource.source.semantic_fields,
+      };
+      return (
+        Object.entries(search.filters).every(
+          ([key, value]) => fields[key] === value,
+        ) &&
+        (search.q === '*' ||
+          Object.values(fields)
+            .join(' ')
+            .toLowerCase()
+            .includes(search.q.toLowerCase()))
+      );
+    });
+    const start = (search.page - 1) * search.limit;
+    await route.fulfill({
+      status: response.status,
+      json: {
+        ...body,
+        results: matches.slice(start, start + search.limit),
+        totalCount: matches.length,
+        nextCursor:
+          start + search.limit < matches.length
+            ? String(start + search.limit)
+            : '',
+      },
+    });
   }
 
   private async handleGatewayRequest(route: Route): Promise<void> {
