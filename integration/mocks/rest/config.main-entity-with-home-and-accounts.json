@@ -3,7 +3,8 @@
   "body": {
     "portalContext": {
       "crdGatewayApiUrl": "{{portalOrigin}}/api/kubernetes-graphql-gateway/root:orgs:test-org/graphql",
-      "kcpWorkspaceUrl": "{{portalOrigin}}/clusters/root:orgs:test-org"
+      "kcpWorkspaceUrl": "{{portalOrigin}}/clusters/root:orgs:test-org",
+      "openSearchApiUrl": "{{portalOrigin}}/api/search"
     },
     "featureToggles": {},
     "providers": [

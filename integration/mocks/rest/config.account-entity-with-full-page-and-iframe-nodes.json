@@ -1,0 +1,76 @@
+{
+  "status": 200,
+  "body": {
+    "entityContext": {
+      "id": "{{accountName}}",
+      "policies": ["create", "delete", "get", "list", "update", "watch"]
+    },
+    "providers": [
+      {
+        "name": "platform-mesh-system",
+        "displayName": "",
+        "creationTimestamp": "",
+        "nodeContext": {
+          "nodesPermissions": []
+        },
+        "nodes": [
+          {
+            "entityType": "main.core_platform-mesh_io_account",
+            "pathSegment": "dashboard",
+            "label": "Dashboard",
+            "icon": "bbyd-dashboard",
+            "order": 100,
+            "url": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "viewUrl": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "webcomponent": {
+              "selfRegistered": true,
+              "type": "module"
+            },
+            "defineEntity": {
+              "id": "dashboard"
+            },
+            "compound": {
+              "children": []
+            },
+            "children": []
+          },
+          {
+            "entityType": "main.core_platform-mesh_io_account",
+            "pathSegment": "full-page",
+            "label": "Full Page",
+            "order": 200,
+            "hideSideNav": true,
+            "url": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "viewUrl": "/assets/platform-mesh-portal-ui-wc.js#generic-detail-view",
+            "webcomponent": {
+              "selfRegistered": true,
+              "type": "module"
+            },
+            "children": []
+          },
+          {
+            "entityType": "main.core_platform-mesh_io_account",
+            "pathSegment": "members",
+            "label": "Members",
+            "icon": "company-view",
+            "order": 800,
+            "url": "https://test-org.portal.example.test/ui/iam/ui/#/organization/members",
+            "viewUrl": "https://test-org.portal.example.test/ui/iam/ui/#/organization/members",
+            "viewGroup": "members",
+            "children": []
+          },
+          {
+            "entityType": "main.core_platform-mesh_io_account",
+            "pathSegment": "virtual-tree",
+            "label": "Virtual Tree",
+            "order": 900,
+            "virtualTree": true,
+            "url": "https://test-org.portal.example.test/ui/virtual-tree/",
+            "viewUrl": "https://test-org.portal.example.test/ui/virtual-tree/",
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}

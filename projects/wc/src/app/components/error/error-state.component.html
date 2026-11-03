@@ -1,0 +1,36 @@
+@let configVM = config();
+<ui5-illustrated-message
+  data-testid="error-view-illustration"
+  role="status"
+  [name]="configVM.scene"
+>
+  <ui5-title data-testid="error-view-title" slot="title" level="H1">{{
+    configVM.illustratedMessageTitle
+  }}</ui5-title>
+  <div slot="subtitle">
+    <p data-testid="error-view-subtitle">
+      {{ subtitle() ?? configVM.illustratedMessageText }}
+    </p>
+  </div>
+  <div class="error-state-actions">
+    <ng-content />
+    @if (retryable()) {
+      @if (isSessionExpired()) {
+        <ui5-button
+          data-testid="error-view-sign-in"
+          design="Emphasized"
+          (click)="signIn()"
+          >Login</ui5-button
+        >
+      } @else {
+        <ui5-button
+          data-testid="error-view-retry"
+          design="Emphasized"
+          [disabled]="retryDisabled()"
+          (click)="retry.emit()"
+          >Retry</ui5-button
+        >
+      }
+    }
+  </div>
+</ui5-illustrated-message>

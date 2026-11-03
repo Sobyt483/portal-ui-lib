@@ -1,162 +1,75 @@
 import { ErrorView } from './error.component';
-import { ButtonConfig } from './models/error.model';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { I18nService, LuigiCoreService } from '@openmfp/portal-ui-lib';
 import { MockedObject } from 'vitest';
 
-describe('ErrorComponent', () => {
-  let component: ErrorView;
+describe('ErrorView', () => {
   let fixture: ComponentFixture<ErrorView>;
-  let i18nServiceMock: MockedObject<I18nService>;
   let luigiCoreServiceMock: MockedObject<LuigiCoreService>;
 
-  beforeEach(async () => {
-    i18nServiceMock = {
-      getTranslationAsync: vi.fn().mockResolvedValue('translated text'),
-      translationTable: {},
-    } as any;
+  const element = (testId: string) =>
+    fixture.nativeElement.shadowRoot.querySelector(`[data-testid="${testId}"]`);
 
+  const render = async (context: object) => {
+    fixture.componentRef.setInput('context', context);
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
+
+  beforeEach(async () => {
     luigiCoreServiceMock = {
-      navigation: vi.fn().mockReturnValue({
-        navigate: vi.fn(),
-      }),
-      showAlert: vi.fn(),
+      configChanged: vi.fn(),
     } as any;
 
     await TestBed.configureTestingModule({
       imports: [ErrorView],
       providers: [
-        { provide: I18nService, useValue: i18nServiceMock },
+        {
+          provide: I18nService,
+          useValue: {
+            getTranslationAsync: vi.fn((key: string) => Promise.resolve(key)),
+          },
+        },
         { provide: LuigiCoreService, useValue: luigiCoreServiceMock },
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(ErrorView);
-    component = fixture.componentInstance;
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
+  it('shows the error of the id path parameter on the global error node', async () => {
+    await render({ id: '404' });
+
+    expect(element('error-view-illustration').name).toBe('NoEntries');
   });
 
-  describe('goTo', () => {
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
+  it('offers no retry on the global error node', async () => {
+    await render({ id: '404' });
 
-    it('should open URL in new tab', () => {
-      const windowSpy = vi
-        .spyOn(window, 'open')
-        .mockImplementation((str1, str2) => {
-          return null;
-        });
-      const button: ButtonConfig = { url: 'https://test.com' };
-
-      component.goTo(button);
-      expect(windowSpy).toHaveBeenCalledWith('https://test.com', '_blank');
-    });
-
-    it('should navigate using LuigiCore when route is provided', () => {
-      const button: ButtonConfig = { route: { context: 'test-route' } };
-      const navigateSpy = vi.fn();
-      vi.spyOn(luigiCoreServiceMock, 'navigation').mockReturnValue({
-        navigate: navigateSpy,
-      });
-
-      component.goTo(button);
-      expect(navigateSpy).toHaveBeenCalledWith('/test-route');
-    });
+    expect(element('error-view-retry')).toBeNull();
   });
 
-  describe('setSceneConfig', () => {
-    it('should set 404 config', async () => {
-      const testContext = {
-        id: '404',
-        translationTable: {},
-      };
+  it('shows the error of a failed entity', async () => {
+    await render({ entityErrorCode: 403 });
 
-      fixture.componentRef.setInput('context', testContext);
+    expect(element('error-view-title').textContent).toContain(
+      'You are not authorized to access this content.',
+    );
+  });
 
-      await component.ngOnInit();
-      expect(component.config().scene).toBe('NoEntries');
-      expect(component.config().illustratedMessageTitle).toBe(
-        'translated text',
-      );
-      expect(component.config().illustratedMessageText).toBe('translated text');
-      expect(component.config().buttons).toBeDefined();
-    });
+  it('prefers the error of a failed entity over the id of the node context', async () => {
+    await render({ id: 'account-1', entityErrorCode: 403 });
 
-    it('should set 403 config', async () => {
-      const testContext = {
-        id: '403',
-        translationTable: {},
-      };
+    expect(element('error-view-illustration').name).toBe(
+      'tnt/UnsuccessfulAuth',
+    );
+  });
 
-      fixture.componentRef.setInput('context', testContext);
+  it('retries a failed entity by re-evaluating the navigation', async () => {
+    await render({ entityErrorCode: 500 });
 
-      await component.ngOnInit();
-      expect(component.config().scene).toBe('tnt/UnsuccessfulAuth');
-      expect(component.config().illustratedMessageTitle).toBe(
-        'You are not authorized to access this content.',
-      );
-      expect(component.config().illustratedMessageText).toBe('');
-      expect(component.config().buttons).toBeDefined();
-      expect(component.config().buttons?.length).toBe(0);
-    });
+    element('error-view-retry').click();
 
-    it('should set 422 config', async () => {
-      const testContext = {
-        id: '422',
-        translationTable: {},
-      };
-
-      fixture.componentRef.setInput('context', testContext);
-
-      await component.ngOnInit();
-      expect(component.config().scene).toBe('tnt/NoApplications');
-      expect(component.config().illustratedMessageTitle).toBe(
-        'The resource is pending deletion.',
-      );
-      expect(component.config().illustratedMessageText).toBe('');
-      expect(component.config().buttons).toBeDefined();
-      expect(component.config().buttons?.length).toBe(0);
-    });
-
-    it('should set 503 config', async () => {
-      const testContext = {
-        id: '503',
-        translationTable: {},
-      };
-
-      fixture.componentRef.setInput('context', testContext);
-
-      await component.ngOnInit();
-      expect(component.config().scene).toBe('UnableToLoad');
-      expect(component.config().illustratedMessageTitle).toBe(
-        'Organization is not ready yet',
-      );
-      expect(component.config().illustratedMessageText).toBe(
-        'Please try again later.',
-      );
-      expect(component.config().buttons).toBeDefined();
-      expect(component.config().buttons?.length).toBe(0);
-    });
-
-    it('should set default error config for unknown error code', async () => {
-      const testContext = {
-        id: '500',
-        translationTable: {},
-      };
-
-      fixture.componentRef.setInput('context', testContext);
-
-      await component.ngOnInit();
-      expect(component.config().scene).toBe('UnableToLoad');
-      expect(component.config().illustratedMessageTitle).toBe(
-        'translated text',
-      );
-      expect(component.config().illustratedMessageText).toBe('');
-      expect(component.config().buttons).toBeDefined();
-    });
+    expect(luigiCoreServiceMock.configChanged).toHaveBeenCalledTimes(1);
   });
 });

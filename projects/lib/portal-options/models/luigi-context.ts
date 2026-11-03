@@ -1,5 +1,9 @@
 import { NodeContext } from '@openmfp/portal-ui-lib';
-import { Permission, ResourceDefinition } from '@platform-mesh/portal-ui-lib/models';
+import {
+  Permission,
+  ResourceDefinition,
+} from '@platform-mesh/portal-ui-lib/models';
+
 export interface PortalContext extends Record<string, any> {
   crdGatewayApiUrl: string;
 }
@@ -19,6 +23,7 @@ export interface PortalNodeContext extends NodeContext {
   translationTable?: any;
   namespaceId?: string;
   namespaces?: string[];
+  entityErrorCode?: number;
   entityName?: string;
   entityKind?: string;
   entityId?: string;

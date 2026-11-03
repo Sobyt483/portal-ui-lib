@@ -1,5 +1,6 @@
 import { PortalNodeContext } from '../models/luigi-context';
 import { PortalLuigiNode } from '../models/luigi-node';
+import { errorView } from '../utils/entity-error-node.util';
 import { Injectable, inject } from '@angular/core';
 import {
   CustomGlobalNodesService,
@@ -26,15 +27,11 @@ export class CustomGlobalNodesServiceImpl implements CustomGlobalNodesService {
             entityType: EntityType.ENTITY_ERROR,
             hideFromNav: true,
             hideSideNav: true,
-            viewUrl: '/assets/platform-mesh-portal-ui-wc.js#error-component',
+            ...errorView,
             context: {
               id: ':id',
               translationTable: this.i18nService.translationTable,
             } as any as NodeContext,
-            webcomponent: {
-              selfRegistered: true,
-              type: 'module',
-            },
           },
         ],
       },

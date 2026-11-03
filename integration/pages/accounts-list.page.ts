@@ -9,10 +9,14 @@ export class AccountsListPage {
     label: 'Accounts',
   };
 
+  readonly description: Locator;
+  readonly table: Locator;
   private readonly page: Page;
 
   constructor(page: Page) {
     this.page = page;
+    this.description = page.getByText('This page displays the created');
+    this.table = page.getByTestId('generic-list-view-table');
   }
 
   accountRow(accountName: string): Locator {

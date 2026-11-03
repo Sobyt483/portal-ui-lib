@@ -19,6 +19,8 @@ import {
 } from '@platform-mesh/portal-ui-lib/utils';
 import { firstValueFrom } from 'rxjs';
 
+const ORGANIZATION_NOT_READY_ERROR_CODE = 503;
+
 @Injectable({
   providedIn: 'root',
 })
@@ -42,7 +44,7 @@ export class NodeContextProcessingServiceImpl implements NodeContextProcessingSe
     const entityId =
       dynamicEntityId || entityNode.context.resourceDefinition?.name;
 
-    if (!entityId) {
+    if (!entityId || ctx.entityErrorCode) {
       return;
     }
 
@@ -106,55 +108,13 @@ export class NodeContextProcessingServiceImpl implements NodeContextProcessingSe
       );
 
       // we were able to ready the account info so on this kcpPath we can query for the organization ready state
-      this.organizationReadyService.checkOrganizationReady();
+      if (!(await this.organizationReadyService.isOrganizationReady())) {
+        ctx.entityErrorCode = ORGANIZATION_NOT_READY_ERROR_CODE;
+      }
     } catch (e) {
-      if (
-        this.errorHandlerService.redirectToErrorPage(
-          e,
-          this.isLocationWithinEntity(entityNode, dynamicEntityId),
-        )
-      ) {
-        await this.abandonPendingNavigation();
-      }
-
-      this.errorHandlerService.handleError(e, 'Failed to read account info.');
+      ctx.entityErrorCode = this.errorHandlerService.errorCode(e);
+      console.error('Failed to read account info.', e);
     }
-  }
-
-  private abandonPendingNavigation(): Promise<never> {
-    return new Promise<never>(() => {});
-  }
-
-  private isLocationWithinEntity(
-    entityNode: PortalLuigiNode,
-    dynamicEntityId: string,
-  ): boolean {
-    const locationSegments = window.location.pathname
-      .split('/')
-      .filter(Boolean);
-    const entitySegments: (string | undefined)[] = [];
-
-    for (
-      let node: PortalLuigiNode | undefined = entityNode;
-      node;
-      node = node.parent
-    ) {
-      if (!node.pathSegment) {
-        continue;
-      }
-
-      const isDynamicSegment = node.pathSegment.startsWith(':');
-      const dynamicSegmentValue =
-        node === entityNode ? dynamicEntityId || undefined : undefined;
-      entitySegments.unshift(
-        isDynamicSegment ? dynamicSegmentValue : node.pathSegment,
-      );
-    }
-
-    return entitySegments.every(
-      (segment, index) =>
-        segment === undefined || segment === locationSegments[index],
-    );
   }
 
   private addFieldsToContext(
@@ -183,7 +143,7 @@ export class NodeContextProcessingServiceImpl implements NodeContextProcessingSe
     try {
       ctx.namespaces = await firstValueFrom(this.namespaceService.list(ctx));
     } catch (e) {
-      this.errorHandlerService.showError(e, 'Failed to read namespaces.');
+      this.errorHandlerService.handleError(e, 'Failed to read namespaces.');
     }
   }
 

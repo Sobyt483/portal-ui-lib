@@ -1,0 +1,11 @@
+{
+  "status": 200,
+  "body": {
+    "data": null,
+    "errors": [
+      {
+        "message": "the resource is forbidden: User \"test-user\" cannot access it"
+      }
+    ]
+  }
+}

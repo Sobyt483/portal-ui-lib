@@ -8,10 +8,12 @@ export class HttpBinsListPage {
     label: 'Http Bins',
   };
 
+  readonly description: Locator;
   private readonly page: Page;
 
   constructor(page: Page) {
     this.page = page;
+    this.description = page.getByText('This page displays the created');
   }
 
   static path(accountName: string): string {

@@ -1,5 +1,6 @@
 import type { PortalBackendMock } from '../../backend/portal-backend-mock.ts';
 import { expect, test } from '../../fixtures/portal-test.ts';
+import { gatewayFailures } from '../../mocks/gateway-failures.ts';
 import {
   gatewayErrorMocks,
   gatewayMocks,
@@ -7,6 +8,7 @@ import {
 } from '../../mocks/mock-catalog.ts';
 import { AccountDashboardPage } from '../../pages/account-dashboard.page.ts';
 import { AccountsListPage } from '../../pages/accounts-list.page.ts';
+import { ErrorPage } from '../../pages/error.page.ts';
 import { HttpBinPage } from '../../pages/httpbin.page.ts';
 import { HttpBinsListPage } from '../../pages/httpbins-list.page.ts';
 import { OverviewPage } from '../../pages/overview.page.ts';
@@ -19,6 +21,7 @@ const listedHttpBins = ['httpbin-alpha', 'httpbin-beta'];
 const selectedHttpBin = 'httpbin-beta';
 const selectedHttpBinNamespace = 'team-b';
 const namespaceSearchParam = 'namespace';
+const httpBinDashboardPath = `${HttpBinPage.path(selectedAccount, selectedHttpBin, HttpBinPage.dashboard)}?${namespaceSearchParam}=${selectedHttpBinNamespace}`;
 
 test.describe('httpbin navigation within an account', () => {
   let accountsList: AccountsListPage;
@@ -164,16 +167,59 @@ test.describe('httpbin navigation within an account', () => {
 
 test.describe('when reading the httpbin fails', () => {
   const namespaces = ['team-a', 'team-b'];
+  let errorPage: ErrorPage;
   let httpBin: HttpBinPage;
   let portalShell: PortalShell;
 
   test.beforeEach(({ page, portalBackend }) => {
+    errorPage = new ErrorPage(page);
     httpBin = new HttpBinPage(page);
     portalShell = new PortalShell(page);
     portalBackend.respondToAccountEntityConfig(
       selectedAccount,
       restMocks.accountEntityConfigWithDashboardAndHttpBins,
     );
+  });
+
+  for (const failure of gatewayFailures()) {
+    test(`keeps the URL and the navigation of the httpbin and shows the ${failure.errorCode} error for ${failure.description}`, async ({
+      page,
+      portalBackend,
+    }) => {
+      portalBackend.respondToHttpBinRead(selectedAccount, failure.mockFile);
+
+      await page.goto(httpBinDashboardPath);
+
+      await errorPage.expectShown(failure.errorCode);
+      await expect(page).toHaveURL(httpBinDashboardPath);
+      await portalShell.expectSideNavigation(
+        HttpBinPage.navigation,
+        HttpBinPage.dashboard,
+      );
+      await expect
+        .poll(() => portalShell.renderedViews())
+        .toEqual([HttpBinPage.viewName]);
+      await errorPage.expectRecoveryAction(failure.errorCode);
+      await expect(portalShell.alert).toHaveCount(0);
+    });
+  }
+
+  test('offers the login button instead of a namespace selection when the session has expired', async ({
+    page,
+    portalBackend,
+  }) => {
+    portalBackend.respondToHttpBinRead(
+      selectedAccount,
+      gatewayErrorMocks.http401Unauthorized,
+    );
+
+    await page.goto(
+      HttpBinPage.path(selectedAccount, selectedHttpBin, HttpBinPage.dashboard),
+    );
+
+    await errorPage.expectShown(401);
+    await errorPage.expectRecoveryAction(401);
+    await expect(httpBin.namespaceSelect).toHaveCount(0);
   });
 
   test('shows the read failure and retries in the known namespace for a GraphQL error', async ({
@@ -184,14 +230,14 @@ test.describe('when reading the httpbin fails', () => {
       selectedAccount,
       gatewayErrorMocks.graphqlErrorServiceUnavailable,
     );
-    const dashboardPath = `${HttpBinPage.path(selectedAccount, selectedHttpBin, HttpBinPage.dashboard)}?${namespaceSearchParam}=${selectedHttpBinNamespace}`;
+    const dashboardPath = httpBinDashboardPath;
 
     await page.goto(dashboardPath);
 
     await expectReadFailureShown(HttpBinPage.readFailedSubtitle);
     await expect(portalShell.alert).toHaveCount(0);
     await expect(httpBin.namespaceSelect).toHaveCount(0);
-    await expect(httpBin.retryButton).not.toHaveAttribute('disabled');
+    await expect(errorPage.retryButton).not.toHaveAttribute('disabled');
     expect(httpBinReadNamespaces(portalBackend)).toEqual([
       selectedHttpBinNamespace,
     ]);
@@ -203,7 +249,7 @@ test.describe('when reading the httpbin fails', () => {
       selectedAccount,
       gatewayMocks.httpBinReadForHttpBinBetaInTeamB,
     );
-    await httpBin.retryButton.click();
+    await errorPage.retryButton.click();
 
     await expectHttpBinShown(page, dashboardPath);
     expect(httpBinReadNamespaces(portalBackend)).toEqual([
@@ -238,7 +284,7 @@ test.describe('when reading the httpbin fails', () => {
     await expect(httpBin.namespaceSelect).toBeVisible();
     await expect(httpBin.namespaceRefreshButton).toBeVisible();
     await expect(httpBin.namespaceOptions()).toHaveText(namespaces);
-    await expect(httpBin.retryButton).toHaveAttribute('disabled');
+    await expect(errorPage.retryButton).toHaveAttribute('disabled');
 
     await httpBin.namespaceSelect.click();
     await httpBin.namespaceOption(selectedHttpBinNamespace).click();
@@ -246,15 +292,15 @@ test.describe('when reading the httpbin fails', () => {
     await expect(page).toHaveURL(
       `${dashboardPath}?${namespaceSearchParam}=${selectedHttpBinNamespace}`,
     );
-    await expect(httpBin.retryButton).not.toHaveAttribute('disabled');
-    await expect(httpBin.readState).toBeVisible();
+    await expect(errorPage.retryButton).not.toHaveAttribute('disabled');
+    await expect(httpBin.errorState).toBeVisible();
     expect(httpBinReadNamespaces(portalBackend)).toEqual([undefined]);
 
     portalBackend.respondToHttpBinRead(
       selectedAccount,
       gatewayMocks.httpBinReadForHttpBinBetaInTeamB,
     );
-    await httpBin.retryButton.click();
+    await errorPage.retryButton.click();
 
     await expectHttpBinShown(
       page,
@@ -290,7 +336,7 @@ test.describe('when reading the httpbin fails', () => {
     await expectNamespaceReadFailureAlerted('Received status code 500');
     await expect(httpBin.namespaceSelect).toBeVisible();
     await expect(httpBin.namespaceOptions()).toHaveCount(0);
-    await expect(httpBin.retryButton).toHaveAttribute('disabled');
+    await expect(errorPage.retryButton).toHaveAttribute('disabled');
     expect(
       portalBackend.requestsTo('namespacesList', selectedAccount),
     ).toHaveLength(1);
@@ -319,7 +365,7 @@ test.describe('when reading the httpbin fails', () => {
     expect(
       portalBackend.requestsTo('namespacesList', selectedAccount),
     ).toHaveLength(3);
-    await expect(httpBin.retryButton).toHaveAttribute('disabled');
+    await expect(errorPage.retryButton).toHaveAttribute('disabled');
 
     await httpBin.namespaceSelect.click();
     await httpBin.namespaceOption(selectedHttpBinNamespace).click();
@@ -327,13 +373,13 @@ test.describe('when reading the httpbin fails', () => {
     await expect(page).toHaveURL(
       `${dashboardPath}?${namespaceSearchParam}=${selectedHttpBinNamespace}`,
     );
-    await expect(httpBin.retryButton).not.toHaveAttribute('disabled');
+    await expect(errorPage.retryButton).not.toHaveAttribute('disabled');
 
     portalBackend.respondToHttpBinRead(
       selectedAccount,
       gatewayMocks.httpBinReadForHttpBinBetaInTeamB,
     );
-    await httpBin.retryButton.click();
+    await errorPage.retryButton.click();
 
     await expectHttpBinShown(
       page,
@@ -355,11 +401,8 @@ test.describe('when reading the httpbin fails', () => {
     await expect(portalShell.navigationItem(HttpBinPage.dashboard)).toHaveClass(
       PortalShell.selectedNavigationItemClass,
     );
-    await expect(httpBin.readState).toHaveAttribute(
-      'title-text',
-      HttpBinPage.readFailedTitle,
-    );
-    await expect(httpBin.readState).toHaveAttribute('subtitle-text', subtitle);
+    await errorPage.expectShown(500);
+    await expect(errorPage.subtitle).toHaveText(subtitle);
     await expect
       .poll(() => portalShell.renderedViews())
       .toEqual([HttpBinPage.viewName]);
@@ -367,7 +410,7 @@ test.describe('when reading the httpbin fails', () => {
 
   async function expectHttpBinShown(page: Page, path: string) {
     await expect(httpBin.field('metadata.name')).toContainText(selectedHttpBin);
-    await expect(httpBin.readState).toHaveCount(0);
+    await expect(httpBin.errorState).toHaveCount(0);
     await expect(page).toHaveURL(path);
   }
 
@@ -376,4 +419,103 @@ test.describe('when reading the httpbin fails', () => {
       .requestsTo('httpBinRead', selectedAccount)
       .map((request) => request.namespace);
   }
+});
+
+test.describe('when reading the account info of an opened httpbin fails', () => {
+  test('keeps the URL and the navigation of the httpbin and replaces its view with the error', async ({
+    page,
+    portalBackend,
+  }) => {
+    const portalShell = new PortalShell(page);
+    const errorPage = new ErrorPage(page);
+    portalBackend.respondToAccountEntityConfig(
+      selectedAccount,
+      restMocks.accountEntityConfigWithDashboardAndHttpBins,
+    );
+    portalBackend.respondToAccountInfoRead(
+      selectedAccount,
+      gatewayErrorMocks.http404NotFound,
+    );
+
+    await page.goto(httpBinDashboardPath);
+
+    await errorPage.expectShown(404);
+    await expect(page).toHaveURL(httpBinDashboardPath);
+    await portalShell.expectSideNavigation(
+      HttpBinPage.navigation,
+      HttpBinPage.dashboard,
+    );
+    await expect
+      .poll(() => portalShell.renderedViews())
+      .toEqual([ErrorPage.viewName]);
+    expect(
+      portalBackend.requestsTo('httpBinRead', selectedAccount),
+      'the httpbin view must not be rendered',
+    ).toEqual([]);
+  });
+});
+
+test.describe('when listing the httpbins fails', () => {
+  for (const failure of gatewayFailures()) {
+    test(`keeps the URL and the navigation of the account and shows the ${failure.errorCode} error for ${failure.description}`, async ({
+      page,
+      portalBackend,
+    }) => {
+      const portalShell = new PortalShell(page);
+      const errorPage = new ErrorPage(page);
+      const httpBinsList = new HttpBinsListPage(page);
+      portalBackend.respondToAccountEntityConfig(
+        selectedAccount,
+        restMocks.accountEntityConfigWithDashboardAndHttpBins,
+      );
+      portalBackend.respondToHttpBinsList(selectedAccount, failure.mockFile);
+
+      await page.goto(HttpBinsListPage.path(selectedAccount));
+
+      await errorPage.expectShown(failure.errorCode);
+      await expect(page).toHaveURL(
+        (url) => url.pathname === HttpBinsListPage.path(selectedAccount),
+      );
+      await expect(portalShell.sideNavigationItems).toHaveText([
+        AccountDashboardPage.navigation.label,
+        HttpBinsListPage.navigation.label,
+      ]);
+      await expect
+        .poll(() => portalShell.renderedViews())
+        .toEqual([HttpBinsListPage.viewName]);
+      await errorPage.expectRecoveryAction(failure.errorCode);
+      await expect(httpBinsList.description).toBeHidden();
+      await expect(portalShell.alert).toHaveCount(0);
+    });
+  }
+
+  test('shows the httpbins after a successful retry', async ({
+    page,
+    portalBackend,
+  }) => {
+    const errorPage = new ErrorPage(page);
+    const httpBinsList = new HttpBinsListPage(page);
+    portalBackend.respondToAccountEntityConfig(
+      selectedAccount,
+      restMocks.accountEntityConfigWithDashboardAndHttpBins,
+    );
+    portalBackend.respondToHttpBinsList(
+      selectedAccount,
+      gatewayErrorMocks.http500InternalServerError,
+    );
+
+    await page.goto(HttpBinsListPage.path(selectedAccount));
+    await errorPage.expectShown(500);
+
+    portalBackend.respondToHttpBinsList(
+      selectedAccount,
+      gatewayMocks.httpBinsListWithTwoReadyHttpBins,
+    );
+    await errorPage.retryButton.click();
+
+    for (const httpBinName of listedHttpBins) {
+      await expect(httpBinsList.httpBinRow(httpBinName)).toBeVisible();
+    }
+    await expect(errorPage.title).toHaveCount(0);
+  });
 });

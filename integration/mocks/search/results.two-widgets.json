@@ -1,0 +1,60 @@
+{
+  "status": 200,
+  "body": {
+    "results": [
+      {
+        "id": "widget/widget-alpha",
+        "score": 1.0,
+        "kind": "Widget",
+        "name": "widget-alpha",
+        "namespace": "team-a",
+        "apiGroup": "example.io",
+        "apiVersion": "v1alpha1",
+        "workspacePath": "root:orgs:test-org",
+        "clusterName": "cluster",
+        "organizationId": "org-1",
+        "organizationName": "test-org",
+        "accountId": "account-1",
+        "accountName": "account-gamma",
+        "source": {
+          "default_fields": {
+            "metadata.name": "widget-alpha",
+            "metadata.namespace": "team-a"
+          },
+          "filterable_fields": {},
+          "semantic_fields": {
+            "spec.description": "First widget"
+          }
+        }
+      },
+      {
+        "id": "widget/widget-beta",
+        "score": 1.0,
+        "kind": "Widget",
+        "name": "widget-beta",
+        "namespace": "team-a",
+        "apiGroup": "example.io",
+        "apiVersion": "v1alpha1",
+        "workspacePath": "root:orgs:test-org",
+        "clusterName": "cluster",
+        "organizationId": "org-1",
+        "organizationName": "test-org",
+        "accountId": "account-1",
+        "accountName": "account-gamma",
+        "source": {
+          "default_fields": {
+            "metadata.name": "widget-beta",
+            "metadata.namespace": "team-a"
+          },
+          "filterable_fields": {},
+          "semantic_fields": {
+            "spec.description": "Second widget"
+          }
+        }
+      }
+    ],
+    "source": "opensearch",
+    "nextCursor": "",
+    "totalCount": 2
+  }
+}

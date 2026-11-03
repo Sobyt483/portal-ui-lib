@@ -175,6 +175,18 @@ describe('ListViewComponent', () => {
       expect(cards[0].componentInputs?.['LuigiClient']).toBeDefined();
       expect(cards[0].componentInputs?.['context']).toBeDefined();
     });
+
+    it('should pass a callback for read failures as componentInput', () => {
+      const failure = { code: 404, retry: vi.fn() };
+
+      const readFailureChange = component.cards()[0].componentInputs?.[
+        'readFailureChange'
+      ] as (failure: object) => void;
+
+      readFailureChange(failure);
+
+      expect((component as any).readFailure()).toBe(failure);
+    });
   });
 });
 
@@ -217,5 +229,80 @@ describe('ListViewComponent template', () => {
       '[data-testid="generic-list-view"]',
     );
     expect(el).not.toBeNull();
+  });
+});
+
+describe('ListViewComponent read failure', () => {
+  let fixture: ComponentFixture<ListView>;
+  let component: ListView;
+
+  const find = (selector: string) =>
+    fixture.nativeElement.querySelector(selector);
+  const reportReadFailure = (failure: object | null) => {
+    const readFailureChange = component.cards()[0].componentInputs?.[
+      'readFailureChange'
+    ] as (failure: object | null) => void;
+    readFailureChange(failure);
+    fixture.detectChanges();
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: LuigiCoreService, useValue: mock() },
+        { provide: ErrorHandlerService, useValue: mock() },
+      ],
+      schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    }).overrideComponent(ListView, {
+      set: { imports: [], schemas: [CUSTOM_ELEMENTS_SCHEMA] },
+    });
+
+    fixture = TestBed.createComponent(ListView);
+    component = fixture.componentInstance;
+    fixture.componentRef.setInput('context', {
+      resourceDefinition: {
+        entityCollection: 'clusters',
+        entity: 'Cluster',
+        apiGroup: 'core_k8s_io',
+        version: 'v1alpha1',
+        ui: { listView: { fields: [] } },
+      },
+    });
+    fixture.componentRef.setInput('LuigiClient', {
+      getActiveFeatureToggles: () => [],
+    });
+    fixture.detectChanges();
+  });
+
+  it('shows the dashboard without an error state while there is no failure', () => {
+    expect(find('[data-testid="generic-list-view-error-state"]')).toBeNull();
+    expect(find('mfp-dashboard').style.display).toBe('');
+  });
+
+  it('shows only the error state with the code of the failure', () => {
+    reportReadFailure({ code: 403, retry: vi.fn() });
+
+    expect(find('[data-testid="generic-list-view-error-state"]').code).toBe(403);
+    expect(find('mfp-dashboard').style.display).toBe('none');
+  });
+
+  it('retries through the failure of the card', () => {
+    const retry = vi.fn();
+    reportReadFailure({ code: 500, retry });
+
+    find('[data-testid="generic-list-view-error-state"]').dispatchEvent(
+      new CustomEvent('retry'),
+    );
+
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the dashboard again when the failure is gone', () => {
+    reportReadFailure({ code: 500, retry: vi.fn() });
+
+    reportReadFailure(null);
+
+    expect(find('[data-testid="generic-list-view-error-state"]')).toBeNull();
+    expect(find('mfp-dashboard').style.display).toBe('');
   });
 });

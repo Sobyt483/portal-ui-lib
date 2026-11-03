@@ -1,65 +1,46 @@
-@if (viewState() === 'error' || viewState() === 'not-found') {
-  <ui5-illustrated-message
-    data-testid="generic-detail-view-read-state"
-    role="status"
-    [name]="viewState() === 'error' ? 'UnableToLoad' : 'NoEntries'"
-    [titleText]="
-      viewState() === 'error' ? 'Could not load resource' : 'Resource not found'
+@if (viewState() === 'error') {
+  <pm-error-state
+    data-testid="generic-detail-view-error-state"
+    [code]="readErrorCode()"
+    [subtitle]="
+      showNamespaceSelection() ? 'Select a namespace and try again.' : undefined
     "
-    [subtitleText]="
-      namespaceRequired()
-        ? 'Select a namespace and try again.'
-        : viewState() === 'error'
-          ? 'Please try again.'
-          : 'The requested resource is not available.'
-    "
+    [retryable]="canRetryRead()"
+    [retryDisabled]="showNamespaceSelection() && !selectedNamespace()"
+    (retry)="retryRead()"
   >
-    <div class="read-state-actions">
-      @if (namespaceRequired()) {
-        <div class="namespace-selection">
-          <ui5-select
-            data-testid="generic-detail-view-namespace-select"
-            accessibleName="Namespace"
-            (ui5Change)="selectNamespace($event)"
-          >
-            <ui5-option value="" [selected]="!selectedNamespace()"
-              >Select namespace</ui5-option
-            >
-            @for (namespace of namespaces(); track namespace) {
-              <ui5-option
-                [value]="namespace"
-                [selected]="namespace === selectedNamespace()"
-                [attr.data-testid]="
-                  'generic-detail-view-namespace-option-' + namespace
-                "
-                >{{ namespace }}</ui5-option
-              >
-            }
-          </ui5-select>
-          <ui5-button
-            data-testid="generic-detail-view-namespace-refresh"
-            icon="refresh"
-            tooltip="Refresh namespaces"
-            accessibleName="Refresh namespaces"
-            (click)="refreshNamespaces()"
-          ></ui5-button>
-        </div>
-      }
-      <div>
-        <ui5-button
-          data-testid="generic-detail-view-retry"
-          design="Emphasized"
-          [disabled]="namespaceRequired() && !selectedNamespace()"
-          (click)="retryRead()"
-          >Retry</ui5-button
+    @if (showNamespaceSelection()) {
+      <div class="namespace-selection">
+        <ui5-select
+          data-testid="generic-detail-view-namespace-select"
+          accessibleName="Namespace"
+          (ui5Change)="selectNamespace($event)"
         >
-        @if (context().parentNavigationContexts?.length) {
-          <ui5-button (click)="navigateToParent()">Back</ui5-button>
-        }
+          <ui5-option value="" [selected]="!selectedNamespace()"
+            >Select namespace</ui5-option
+          >
+          @for (namespace of namespaces(); track namespace) {
+            <ui5-option
+              [value]="namespace"
+              [selected]="namespace === selectedNamespace()"
+              [attr.data-testid]="
+                'generic-detail-view-namespace-option-' + namespace
+              "
+              >{{ namespace }}</ui5-option
+            >
+          }
+        </ui5-select>
+        <ui5-button
+          data-testid="generic-detail-view-namespace-refresh"
+          icon="refresh"
+          tooltip="Refresh namespaces"
+          accessibleName="Refresh namespaces"
+          (click)="refreshNamespaces()"
+        ></ui5-button>
       </div>
-    </div>
-  </ui5-illustrated-message>
-} @else if (viewState() !== 'redirecting') {
+    }
+  </pm-error-state>
+} @else {
   <mfp-dashboard
     [loading]="viewState() === 'loading'"
     [loadingDelay]="0"

@@ -69,17 +69,6 @@ mfp-dashboard {
   }
 }
 
-ui5-illustrated-message ui5-button + ui5-button {
-  margin-inline-start: 0.5rem;
-}
-
-.read-state-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .namespace-selection {
   display: flex;
   align-items: center;

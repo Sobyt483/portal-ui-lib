@@ -4,6 +4,7 @@ import {
   OpenSearchResult,
   OpenSearchService,
 } from './services/open-search.service';
+import { HttpErrorResponse } from '@angular/common/http';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import {
@@ -395,17 +396,40 @@ describe('SearchListDynamicPage', () => {
       );
     });
 
-    it('forwards errors to ErrorHandlerService', () => {
+    it('logs a failed list without alerting', () => {
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      const error = new Error('boom');
       listSubject.next({ results: [], nextCursor: '', source: 'os' });
       listSubject.complete();
 
       mockOpenSearchService.listResources.mockReturnValue(
+        throwError(() => error),
+      );
+      component.list();
+
+      expect(consoleSpy).toHaveBeenCalledWith(error);
+      expect(mockErrorHandlerService.handleError).not.toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+
+    it('clears the error when listing again', () => {
+      listSubject.next({ results: [], nextCursor: '', source: 'os' });
+      listSubject.complete();
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockOpenSearchService.listResources.mockReturnValue(
         throwError(() => new Error('boom')),
       );
       component.list();
-      expect(mockErrorHandlerService.handleError).toHaveBeenCalledWith(
-        expect.any(Error),
+      expect(component.error()).not.toBeNull();
+
+      mockOpenSearchService.listResources.mockReturnValue(
+        of({ results: [], nextCursor: '', source: 'os' }),
       );
+      component.list();
+
+      expect(component.error()).toBeNull();
     });
 
     it('does not call listResources when canDo("list") returns false', () => {
@@ -456,6 +480,44 @@ describe('SearchListDynamicPage', () => {
         message: 'Something broke',
         withRetryButton: true,
       });
+    });
+
+    it('uses the detail of the response body for an HTTP error', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      listSubject.next({ results: [], nextCursor: '', source: 'os' });
+      listSubject.complete();
+      mockOpenSearchService.listResources.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 400,
+              url: 'http://search/api',
+              error: { detail: 'The search query is invalid.' },
+            }),
+        ),
+      );
+
+      component.list();
+
+      expect(component.error()?.status).toBe(400);
+      expect(component.error()?.message).toBe('The search query is invalid.');
+    });
+
+    it('does not show the technical message of an HTTP error without a detail', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      listSubject.next({ results: [], nextCursor: '', source: 'os' });
+      listSubject.complete();
+      mockOpenSearchService.listResources.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({ status: 500, url: 'http://search/api' }),
+        ),
+      );
+
+      component.list();
+
+      expect(component.error()?.status).toBe(500);
+      expect(component.error()?.message).toBeUndefined();
     });
 
     it('falls back to error.message when detail is absent', () => {
@@ -845,7 +907,9 @@ describe('SearchListDynamicPage', () => {
       const f = createComponent(
         {
           resourceDefinition: {
-            ui: { listView: { resourceURL: '/workspaces/{resource.metadata.name}' } },
+            ui: {
+              listView: { resourceURL: '/workspaces/{resource.metadata.name}' },
+            },
           },
         },
         lc,

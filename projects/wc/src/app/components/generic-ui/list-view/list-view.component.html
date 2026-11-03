@@ -1,5 +1,14 @@
+@let failure = readFailure();
+@if (failure) {
+  <pm-error-state
+    data-testid="generic-list-view-error-state"
+    [code]="failure.code"
+    (retry)="failure.retry()"
+  />
+}
 <mfp-dashboard
   data-testid="generic-list-view"
+  [style.display]="failure ? 'none' : null"
   [config]="dashboardConfig()"
   [customActions]="customActions"
   [i18n]="i18n()"

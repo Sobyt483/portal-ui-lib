@@ -6,6 +6,32 @@ export const restMocks = {
     'rest/config.account-entity-with-dashboard.json',
   accountEntityConfigWithDashboardAndHttpBins:
     'rest/config.account-entity-with-dashboard-and-httpbins.json',
+  accountEntityConfigWithFullPageAndIframeNodes:
+    'rest/config.account-entity-with-full-page-and-iframe-nodes.json',
+  accountEntityConfigWithSearchList:
+    'rest/config.account-entity-with-search-list.json',
+  accountEntityConfigWithSearchListWithoutListPermission:
+    'rest/config.account-entity-with-search-list-without-list-permission.json',
+  accountEntityConfigWithoutNodes:
+    'rest/config.account-entity-without-nodes.json',
+} as const;
+
+export const searchMocks = {
+  resultsWithTwoWidgets: 'search/results.two-widgets.json',
+} as const;
+
+export const searchErrorMocks = {
+  http400InvalidQuery: 'search/errors/http-400-invalid-query.json',
+  http401Unauthorized: 'search/errors/http-401-unauthorized.json',
+  http403Forbidden: 'search/errors/http-403-forbidden.json',
+  http404NotFound: 'search/errors/http-404-not-found.json',
+  http500InternalServerError:
+    'search/errors/http-500-internal-server-error.json',
+} as const;
+
+export const restErrorMocks = {
+  http403Forbidden: 'rest/errors/http-403-forbidden.json',
+  http500InternalServerError: 'rest/errors/http-500-internal-server-error.json',
 } as const;
 
 export const gatewayMocks = {
@@ -19,7 +45,10 @@ export const gatewayMocks = {
   accountReadSucceeds: 'gateway/account-read.succeeds.json',
   accountReadForbiddenGraphqlError:
     'gateway/account-read.forbidden-graphql-error.json',
+  accountReadPendingDeletion: 'gateway/account-read.pending-deletion.json',
   logicalClusterReadReady: 'gateway/logical-cluster-read.ready.json',
+  logicalClusterReadInitializing:
+    'gateway/logical-cluster-read.initializing.json',
   httpBinsListWithTwoReadyHttpBins:
     'gateway/httpbins-list.two-ready-httpbins.json',
   httpBinsWatchClosingWithoutChanges:
@@ -35,10 +64,12 @@ export const gatewayMocks = {
 } as const;
 
 export const gatewayErrorMocks = {
+  http401Unauthorized: 'gateway/errors/http-401-unauthorized.json',
   http403Forbidden: 'gateway/errors/http-403-forbidden.json',
   http404NotFound: 'gateway/errors/http-404-not-found.json',
   http500InternalServerError:
     'gateway/errors/http-500-internal-server-error.json',
+  graphqlErrorForbidden: 'gateway/errors/graphql-error-forbidden.json',
   graphqlErrorServiceUnavailable:
     'gateway/errors/graphql-error-service-unavailable.json',
 } as const;

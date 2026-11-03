@@ -329,14 +329,14 @@ Two pieces work together:
 
 Behaviour at runtime:
 
-| Situation | Child field value | Child field options |
-|---|---|---|
-| Create-open, parent empty | empty | empty — no query is sent |
-| Parent gets a value | cleared | fetched for the current parent value |
-| Parent cleared | cleared | empty — no query is sent |
-| Edit-open with prefilled parent + child | both preserved | fetched for the loaded parent value |
-| Request still in flight | — | submit is disabled until the request resolves |
-| Stale response (parent changed again before the first response arrived) | — | discarded; only the latest response is applied |
+| Situation                                                               | Child field value | Child field options                            |
+| ----------------------------------------------------------------------- | ----------------- | ---------------------------------------------- |
+| Create-open, parent empty                                               | empty             | empty — no query is sent                       |
+| Parent gets a value                                                     | cleared           | fetched for the current parent value           |
+| Parent cleared                                                          | cleared           | empty — no query is sent                       |
+| Edit-open with prefilled parent + child                                 | both preserved    | fetched for the loaded parent value            |
+| Request still in flight                                                 | —                 | submit is disabled until the request resolves  |
+| Stale response (parent changed again before the first response arrived) | —                 | discarded; only the latest response is applied |
 
 Notes:
 
@@ -811,7 +811,7 @@ A full-page list view using the SAP Fiori `ui5-dynamic-page` layout. Use it when
 - If `resourceDefinition.ui.createView.fields` is set and the user has `create` permission, a **Create** button appears in the toolbar, which opens `pm-resource-form-modal` — a facade component wrapping `mfp-resource-form-dialog` from `@openmfp/ngx`.
 - If `resourceDefinition.readyCondition` is set, a status-alert column is prepended to the table.
 - A **search input** is rendered in the page header. The search fires only when the user presses **Enter** or clicks the search icon — it does not filter as-you-type. The current query is persisted as `?q=` in the URL; clearing the input and re-submitting removes the param. On reload, `?q=` is read and pre-populates the input. An empty or whitespace-only query is sent to OpenSearch as `q: "*"` (match all).
-- **Error handling**: the table shows an inline error state when a request fails. A retry button is rendered; clicking it re-triggers the current list request. If the user lacks `list` permission, a 403 error is shown without making a network call.
+- **Error handling**: when a request fails, the shared `pm-error-state` replaces the table. The title, description, search input and filter tabs stay, because a search term that causes the error can only be corrected there. A retry button (`error-view-retry`) re-triggers the current list request; for an expired session (HTTP 401) a login button (`error-view-sign-in`) reloads the page instead. The `detail` of the response body is shown as the subtitle when the API sends one. If the user lacks `list` permission, a 403 error is shown without a retry button and without making a network call.
 
 **Test IDs:**
 
@@ -830,6 +830,7 @@ A full-page list view using the SAP Fiori `ui5-dynamic-page` layout. Use it when
 | `search-list-clear-icon`               | Clear search icon                                      | Hidden when input is empty                                                                                                 |
 | `search-list-tab-container`            | Filter tab strip                                       | Only rendered when `listView.filters` is set                                                                               |
 | `search-list-tab-{i}`                  | Individual filter tab at index `i`                     | Dynamic — `i` is 0-based                                                                                                   |
+| `search-list-error-state`              | `pm-error-state` shown instead of the table            | Only rendered when a request fails                                                                                         |
 | `search-list-table`                    | `mfp-declarative-table`                                | Internal table elements use `generic-table-*` test IDs from `@openmfp/ngx`                                                 |
 | `search-list-create-modal`             | `pm-resource-form-modal`                               | The facade wraps `mfp-resource-form-dialog` from `@openmfp/ngx`; internal dialog elements use `create-resource-*` test IDs |
 

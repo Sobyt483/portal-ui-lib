@@ -1797,10 +1797,10 @@ describe('ResourceTableCard', () => {
         expect(res1?.spec?.version).toBe('v2');
       });
 
-      it('should handle error and call error handler service', () => {
+      it('should keep the code of a failed list as the read error', () => {
         const error = new Error('Forbidden');
         mockResourceService.list.mockReturnValue(throwError(() => error));
-        mockErrorHandlerService.redirectToErrorPage.mockReturnValue(true);
+        mockErrorHandlerService.errorCode.mockReturnValue(403);
 
         const newFixture = TestBed.createComponent(ResourceTableCard);
         const newComponent = newFixture.componentInstance;
@@ -1808,10 +1808,12 @@ describe('ResourceTableCard', () => {
         newComponent.LuigiClient = makeLuigiClient();
         newFixture.detectChanges();
 
-        expect(
-          mockErrorHandlerService.redirectToErrorPage,
-        ).toHaveBeenCalledWith(error);
-        expect((newComponent as any).listError()).toBeNull();
+        expect(mockErrorHandlerService.errorCode).toHaveBeenCalledWith(error);
+        expect((newComponent as any).listError()).toEqual({
+          status: 403,
+          message: 'Forbidden',
+          withRetryButton: true,
+        });
       });
 
       it('should set remainingItemCount to 0 when not provided in response', () => {
@@ -1873,6 +1875,60 @@ describe('ResourceTableCard', () => {
         table.detectChanges();
         return { table, context, card: table.componentInstance };
       }
+
+      describe('reporting read failures to the list view', () => {
+        it('reports a failed list with its code and clears it after a successful retry', () => {
+          mockResourceService.list.mockClear();
+          const initial = new Subject<ResourceListResult>();
+          mockResourceService.list
+            .mockReturnValueOnce(initial)
+            .mockReturnValueOnce(of({ items: [], resourceVersion: '2' }));
+          mockErrorHandlerService.errorCode.mockReturnValue(404);
+          const readFailureChange = vi.fn();
+          const table = TestBed.createComponent(ResourceTableCard);
+          table.componentRef.setInput('context', makeContext()());
+          table.componentRef.setInput('LuigiClient', makeLuigiClient()());
+          table.componentRef.setInput('readFailureChange', readFailureChange);
+          table.detectChanges();
+          expect(readFailureChange).toHaveBeenLastCalledWith(null);
+
+          initial.error(new Error('Not found'));
+          table.detectChanges();
+
+          const failure = readFailureChange.mock.lastCall?.[0];
+          expect(failure.code).toBe(404);
+
+          failure.retry();
+          table.detectChanges();
+
+          expect(mockResourceService.list).toHaveBeenCalledTimes(2);
+          expect(readFailureChange).toHaveBeenLastCalledWith(null);
+        });
+
+        it('reports a failed watch with its code', () => {
+          mockResourceService.list.mockClear();
+          mockResourceService.resourceChangeSubscription.mockClear();
+          const watch = new Subject<ResourceSubscriptionResult | undefined>();
+          mockResourceService.list.mockReturnValueOnce(
+            of({ items: [], resourceVersion: '1' }),
+          );
+          mockResourceService.resourceChangeSubscription.mockReturnValueOnce(
+            watch,
+          );
+          mockErrorHandlerService.errorCode.mockReturnValue(403);
+          const readFailureChange = vi.fn();
+          const table = TestBed.createComponent(ResourceTableCard);
+          table.componentRef.setInput('context', makeContext()());
+          table.componentRef.setInput('LuigiClient', makeLuigiClient()());
+          table.componentRef.setInput('readFailureChange', readFailureChange);
+          table.detectChanges();
+
+          watch.error(new Error('Forbidden'));
+          table.detectChanges();
+
+          expect(readFailureChange.mock.lastCall?.[0].code).toBe(403);
+        });
+      });
 
       it('shows a retryable initial failure and replaces rows with the successful retry', () => {
         const initial = new Subject<ResourceListResult>();
@@ -1969,9 +2025,7 @@ describe('ResourceTableCard', () => {
           { pagination: { continue: undefined, limit: 5 } },
         ]);
         oldRead.error(new Error('Forbidden'));
-        expect(
-          mockErrorHandlerService.redirectToErrorPage,
-        ).not.toHaveBeenCalled();
+        expect(mockErrorHandlerService.errorCode).not.toHaveBeenCalled();
         expect(card.loading()).toBe(true);
         expect((card as any).listError()).toBeNull();
         currentRead.next({
@@ -2043,7 +2097,6 @@ describe('ResourceTableCard', () => {
           mockResourceService.resourceChangeSubscription.mockReturnValue(
             oldRequest,
           );
-          mockErrorHandlerService.redirectToErrorPage.mockReturnValue(true);
           const showAlert = vi.fn();
           const { table, card, context } = createReactiveTable(showAlert);
 
@@ -2052,9 +2105,7 @@ describe('ResourceTableCard', () => {
             kcpPath: 'root:orgs:example:second',
           });
           oldRequest.error(new Error('Forbidden'));
-          expect(
-            mockErrorHandlerService.redirectToErrorPage,
-          ).not.toHaveBeenCalled();
+          expect(mockErrorHandlerService.errorCode).not.toHaveBeenCalled();
           expect(showAlert).not.toHaveBeenCalled();
           expect((card as any).listError()).toBeNull();
 
@@ -2134,18 +2185,16 @@ describe('ResourceTableCard', () => {
         mockResourceService.resourceChangeSubscription.mockReturnValueOnce(
           watch,
         );
-        mockErrorHandlerService.redirectToErrorPage.mockReturnValue(true);
+        mockErrorHandlerService.errorCode.mockReturnValue(403);
         const { card } = createReactiveTable();
         const error = new Error('Forbidden');
         watch.error(error);
 
-        expect(
-          mockErrorHandlerService.redirectToErrorPage,
-        ).toHaveBeenCalledWith(error);
-        expect((card as any).watchError()).toBeNull();
+        expect(mockErrorHandlerService.errorCode).toHaveBeenCalledWith(error);
+        expect((card as any).watchError().status).toBe(403);
         expect((card as any).listError()).toBeNull();
         card.retryList();
-        expect(mockResourceService.list).toHaveBeenCalledTimes(1);
+        expect(mockResourceService.list).toHaveBeenCalledTimes(2);
       });
 
       it('cancels the active retry when the component is destroyed', () => {

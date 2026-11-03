@@ -4,32 +4,26 @@ import {
   AuthService,
   ConfigService,
   EnvConfigService,
-  LuigiCoreService,
 } from '@openmfp/portal-ui-lib';
 import { LogicalClusterService } from '@platform-mesh/portal-ui-lib/services';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { MockedObject } from 'vitest';
 import { mock } from 'vitest-mock-extended';
-
-async function flushMicrotasks(times = 3) {
-  for (let i = 0; i < times; i++) {
-    await Promise.resolve();
-  }
-}
 
 describe('OrganizationReadyService', () => {
   let mockConfigService: MockedObject<ConfigService>;
   let mockEnvConfigService: MockedObject<EnvConfigService>;
   let mockAuthService: MockedObject<AuthService>;
   let mockLogicalClusterService: MockedObject<LogicalClusterService>;
-  let mockLuigiCoreService: MockedObject<LuigiCoreService>;
+  let service: OrganizationReadyService;
+
+  const logicalClusterInPhase = (phase: string) => of({ status: { phase } });
 
   beforeEach(() => {
     mockConfigService = mock();
     mockEnvConfigService = mock();
     mockAuthService = mock();
     mockLogicalClusterService = mock();
-    mockLuigiCoreService = mock();
 
     mockConfigService.getPortalConfig.mockResolvedValue({
       portalContext: { crdGatewayApiUrl: 'http://crd-gateway' },
@@ -48,30 +42,24 @@ describe('OrganizationReadyService', () => {
         { provide: EnvConfigService, useValue: mockEnvConfigService },
         { provide: AuthService, useValue: mockAuthService },
         { provide: LogicalClusterService, useValue: mockLogicalClusterService },
-        { provide: LuigiCoreService, useValue: mockLuigiCoreService },
       ],
     });
+
+    service = TestBed.inject(OrganizationReadyService);
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
-  it('should call readOrganizationReady with expected context', async () => {
+  it('reads the logical cluster with the expected context', async () => {
     mockLogicalClusterService.read.mockReturnValueOnce(
-      of({
-        status: {
-          phase: 'Ready',
-        },
-      }),
+      logicalClusterInPhase('Ready'),
     );
 
-    const service = TestBed.inject(OrganizationReadyService);
-    await flushMicrotasks();
-    service.checkOrganizationReady();
+    await service.isOrganizationReady();
 
-    expect(mockLogicalClusterService.read).toHaveBeenCalledTimes(1);
-    expect(mockLogicalClusterService.read).toHaveBeenCalledWith({
+    expect(mockLogicalClusterService.read).toHaveBeenCalledExactlyOnceWith({
       portalContext: {
         crdGatewayApiUrl: 'http://crd-gateway',
       },
@@ -80,209 +68,66 @@ describe('OrganizationReadyService', () => {
     });
   });
 
-  it('should not call readOrganizationReady again after it becomes ready', async () => {
+  it('does not read again once the organization is ready', async () => {
     mockLogicalClusterService.read.mockReturnValueOnce(
-      of({
-        status: {
-          phase: 'Ready',
-        },
-      }),
+      logicalClusterInPhase('Ready'),
     );
 
-    const service = TestBed.inject(OrganizationReadyService);
-    await flushMicrotasks();
-    service.checkOrganizationReady();
-    service.checkOrganizationReady();
+    expect(await service.isOrganizationReady()).toBe(true);
+    expect(await service.isOrganizationReady()).toBe(true);
 
     expect(mockLogicalClusterService.read).toHaveBeenCalledTimes(1);
   });
 
-  it('should keep checking until it becomes ready', async () => {
+  it('reports not ready and reads again until the organization is ready', async () => {
     mockLogicalClusterService.read
-      .mockReturnValueOnce(
-        of({
-          status: {
-            phase: 'Initializing',
-          },
-        }),
-      )
-      .mockReturnValueOnce(
-        of({
-          status: {
-            phase: 'Ready',
-          },
-        }),
-      );
-    const navigateMock = vi.fn();
-    mockLuigiCoreService.navigation.mockReturnValue({
-      navigate: navigateMock,
-    } as any);
+      .mockReturnValueOnce(logicalClusterInPhase('Initializing'))
+      .mockReturnValueOnce(logicalClusterInPhase('Ready'));
 
-    const service = TestBed.inject(OrganizationReadyService);
-    await flushMicrotasks();
-    service.checkOrganizationReady();
-    service.checkOrganizationReady();
-    service.checkOrganizationReady();
+    expect(await service.isOrganizationReady()).toBe(false);
+    expect(await service.isOrganizationReady()).toBe(true);
 
-    expect(navigateMock).toHaveBeenCalledWith('/error/503');
     expect(mockLogicalClusterService.read).toHaveBeenCalledTimes(2);
   });
 
-  it('should not perform checks when env idpName is welcome', async () => {
+  it('shares one read between concurrent checks', async () => {
+    const logicalCluster$ = new Subject<any>();
+    mockLogicalClusterService.read.mockReturnValueOnce(logicalCluster$);
+
+    const checks = Promise.all([
+      service.isOrganizationReady(),
+      service.isOrganizationReady(),
+    ]);
+    await vi.waitFor(() =>
+      expect(mockLogicalClusterService.read).toHaveBeenCalled(),
+    );
+    logicalCluster$.next({ status: { phase: 'Ready' } });
+
+    expect(await checks).toEqual([true, true]);
+    expect(mockLogicalClusterService.read).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports ready without reading when the env idpName is welcome', async () => {
     mockEnvConfigService.getEnvConfig.mockResolvedValueOnce({
       idpName: 'welcome',
     } as any);
 
-    const service = TestBed.inject(OrganizationReadyService);
-
-    await flushMicrotasks();
-    service.checkOrganizationReady();
-    service.checkOrganizationReady();
+    expect(await service.isOrganizationReady()).toBe(true);
 
     expect(mockLogicalClusterService.read).not.toHaveBeenCalled();
   });
 
-  it('should handle error in logicalClusterService.read and continue checking', async () => {
+  it('logs a failed read, reports ready and reads again on the next check', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const error = new Error('API error');
-
     mockLogicalClusterService.read
       .mockReturnValueOnce(throwError(() => error))
-      .mockReturnValueOnce(
-        of({
-          status: {
-            phase: 'Ready',
-          },
-        }),
-      );
+      .mockReturnValueOnce(logicalClusterInPhase('Initializing'));
 
-    const service = TestBed.inject(OrganizationReadyService);
-    await flushMicrotasks();
-    service.checkOrganizationReady();
-    await flushMicrotasks();
-    service.checkOrganizationReady();
-    await flushMicrotasks();
+    expect(await service.isOrganizationReady()).toBe(true);
+    expect(await service.isOrganizationReady()).toBe(false);
 
     expect(consoleSpy).toHaveBeenCalledWith('Org check failed', error);
     expect(mockLogicalClusterService.read).toHaveBeenCalledTimes(2);
-
-    consoleSpy.mockRestore();
-  });
-
-  it('should log error but not break check stream on read failure', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const error = new Error('Network timeout');
-
-    mockLogicalClusterService.read.mockReturnValueOnce(throwError(() => error));
-
-    const service = TestBed.inject(OrganizationReadyService);
-    await flushMicrotasks();
-    service.checkOrganizationReady();
-    await flushMicrotasks();
-
-    expect(consoleSpy).toHaveBeenCalledWith('Org check failed', error);
-    expect(mockLogicalClusterService.read).toHaveBeenCalledTimes(1);
-
-    consoleSpy.mockRestore();
-  });
-
-  it('should allow subsequent checks after error', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    mockLogicalClusterService.read
-      .mockReturnValueOnce(throwError(() => new Error('First error')))
-      .mockReturnValueOnce(throwError(() => new Error('Second error')))
-      .mockReturnValueOnce(
-        of({
-          status: {
-            phase: 'Ready',
-          },
-        }),
-      );
-
-    const service = TestBed.inject(OrganizationReadyService);
-    await flushMicrotasks();
-
-    service.checkOrganizationReady();
-    await flushMicrotasks();
-
-    service.checkOrganizationReady();
-    await flushMicrotasks();
-
-    service.checkOrganizationReady();
-    await flushMicrotasks();
-
-    expect(consoleSpy).toHaveBeenCalledTimes(2);
-    expect(mockLogicalClusterService.read).toHaveBeenCalledTimes(3);
-
-    consoleSpy.mockRestore();
-  });
-
-  it('should not navigate to error page when read fails', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const navigateMock = vi.fn();
-    mockLuigiCoreService.navigation.mockReturnValue({
-      navigate: navigateMock,
-    } as any);
-
-    mockLogicalClusterService.read.mockReturnValueOnce(
-      throwError(() => new Error('API error')),
-    );
-
-    const service = TestBed.inject(OrganizationReadyService);
-    await flushMicrotasks();
-    service.checkOrganizationReady();
-    await flushMicrotasks();
-
-    expect(navigateMock).not.toHaveBeenCalled();
-
-    consoleSpy.mockRestore();
-  });
-
-  it('should handle different error types', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const httpError = { status: 500, message: 'Internal Server Error' };
-
-    mockLogicalClusterService.read.mockReturnValueOnce(
-      throwError(() => httpError),
-    );
-
-    const service = TestBed.inject(OrganizationReadyService);
-    await flushMicrotasks();
-    service.checkOrganizationReady();
-    await flushMicrotasks();
-
-    expect(consoleSpy).toHaveBeenCalledWith('Org check failed', httpError);
-
-    consoleSpy.mockRestore();
-  });
-
-  it('should continue checking after multiple consecutive errors', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    mockLogicalClusterService.read
-      .mockReturnValueOnce(throwError(() => new Error('Error 1')))
-      .mockReturnValueOnce(throwError(() => new Error('Error 2')))
-      .mockReturnValueOnce(throwError(() => new Error('Error 3')))
-      .mockReturnValueOnce(
-        of({
-          status: {
-            phase: 'Ready',
-          },
-        }),
-      );
-
-    const service = TestBed.inject(OrganizationReadyService);
-    await flushMicrotasks();
-
-    for (let i = 0; i < 4; i++) {
-      service.checkOrganizationReady();
-      await flushMicrotasks();
-    }
-
-    expect(consoleSpy).toHaveBeenCalledTimes(3);
-    expect(mockLogicalClusterService.read).toHaveBeenCalledTimes(4);
-
-    consoleSpy.mockRestore();
   });
 });

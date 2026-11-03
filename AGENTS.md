@@ -87,6 +87,7 @@ portal-ui-lib/
 │   │   │   ├── services/
 │   │   │   │   ├── crd-gateway-kcp-patch-resolver.service.ts   # CrdGatewayKcpPatchResolver
 │   │   │   │   ├── custom-global-nodes.service.ts              # CustomGlobalNodesServiceImpl
+│   │   │   │   ├── custom-node-processing.service.ts           # CustomNodeProcessingServiceImpl
 │   │   │   │   ├── header-bar-config.service.ts                # HeaderBarConfigServiceImpl
 │   │   │   │   ├── header-bar-renderers/                       # breadcrumb + namespace-selection renderers
 │   │   │   │   ├── luigi-extended-global-context-config.service.ts  # LuigiExtendedGlobalContextConfigServiceImpl
@@ -95,7 +96,8 @@ portal-ui-lib/
 │   │   │   │   ├── router-config.service.ts                    # CustomRoutingConfigServiceImpl
 │   │   │   │   └── user-profile-config.service.ts              # UserProfileConfigServiceImpl
 │   │   │   └── utils/
-│   │   │       └── account-hierarchy.util.ts                   # calculateAccountHierarchy, getInitialAccountId
+│   │   │       ├── account-hierarchy.util.ts                   # calculateAccountHierarchy, getInitialAccountId
+│   │   │       └── entity-error-node.util.ts                   # error view nodes, errorComponentConfig
 │   │   ├── services/                  # secondary entry point: @platform-mesh/portal-ui-lib/services
 │   │   │   ├── error-handler.service.ts
 │   │   │   ├── org-ready.service.ts   # OrganizationReadyService (polls LogicalCluster readiness)
@@ -108,7 +110,7 @@ portal-ui-lib/
 │   │                                  # mergeListWithSubscriptionResult, resource-sanitizer, etc.
 │   └── wc/src/app/
 │       ├── components/
-│       │   ├── error/                 # error-component web component
+│       │   ├── error/                 # error-component web component, shared pm-error-state
 │       │   ├── generic-ui/
 │       │   │   ├── detail-view/       # DetailView component
 │       │   │   ├── generic-form/      # GenericForm, GenericDynamicSelect
@@ -136,7 +138,8 @@ The library provides concrete Angular injectable implementations of interfaces d
 | `HeaderBarConfigServiceImpl`                  | `HeaderBarConfigService`                  | Configures breadcrumb + namespace-selection header bar renderers                         |
 | `NavigationRedirectStrategyServiceImpl`       | `NavigationRedirectStrategy`              | Persists/restores last navigation URL in `localStorage`                                  |
 | `NodeContextProcessingServiceImpl`            | `NodeContextProcessingService`            | Resolves KCP path, account path, and AccountInfo for each Luigi node                     |
-| `CustomGlobalNodesServiceImpl`                | `CustomGlobalNodesService`                | Injects global `/error/:id` and `/users/:userId` nodes                                   |
+| `CustomGlobalNodesServiceImpl`                | `CustomGlobalNodesService`                | Injects global `/error/:id` (unknown URLs only) and `/users/:userId` nodes               |
+| `CustomNodeProcessingServiceImpl`             | `CustomNodeProcessingService`             | Replaces the view of the child nodes of a failed entity with `error-component`           |
 | `NodeChangeHookConfigServiceImpl`             | `NodeChangeHookConfigService`             | Handles `initialRoute`/`virtualTree` navigation and KCP path resolution on node change   |
 | `CustomRoutingConfigServiceImpl`              | `RoutingConfigService`                    | Drops query params on navigation; redirects unknown routes to `/error/404` or `/welcome` |
 | `UserProfileConfigServiceImpl`                | `UserProfileConfigService`                | Builds user profile menu with link to `/users/<email>/overview`                          |
@@ -149,8 +152,20 @@ Key internal services:
 | `CrdGatewayKcpPatchResolver`         | Calculates the KCP workspace path (`root:orgs:<org>[:<account>...]`) and patches the live `crdGatewayApiUrl` in the Luigi global context |
 | `GatewayService`                     | Extracts and replaces the KCP path segment within a `crdGatewayApiUrl`                                                                   |
 | `AccountInfoService`                 | Reads `AccountInfo` CR via Apollo/GraphQL; caches per KCP path                                                                           |
-| `OrganizationReadyService`           | Polls `LogicalCluster` readiness; navigates to `/error/503` if not ready                                                                 |
+| `OrganizationReadyService`           | Reads `LogicalCluster` readiness until the organization is ready                                                                         |
+| `ErrorHandlerService`                | `handleError` alerts and stays on the page; `errorCode` maps an error to the code shown by `pm-error-state`                              |
 | `NamespacedResourceSelectionService` | Remembers the namespace of the opened namespaced resource and restores `?namespace` on its nodes without a Luigi config update           |
+
+## Error handling
+
+A failed read never navigates. The user stays on the URL and in the navigation context, and the content area shows the error.
+
+- **A view fails to read** (`DetailView`, `ListView`, `SearchListDynamicPage`): the view renders the shared `pm-error-state` in place. `pm-error-state` owns the action: Retry, which the view can disable or leave out, or for an expired session (401) a login button that reloads the page, which re-runs the token refresh and otherwise the login. Views only add extras such as the namespace selection. There is no Back button: the breadcrumbs lead to the parent. `DetailView` and `ListView` show only the error below the breadcrumbs: `ListView` hides its dashboard, including title and description, and `ResourceTableCard` holds the read logic and reports the failure and its retry through the `readFailureChange` input. `SearchListDynamicPage` replaces only the table and keeps its title, search input and tabs, because a search term that causes the error can only be corrected there.
+- **A node fails to load** (`AccountInfo` read, organization not ready, `/rest/config/<entity>`): `NodeContextProcessingServiceImpl` records the code as `ctx.entityErrorCode`, and `CustomNodeProcessingServiceImpl` points the child nodes of the entity at `error-component`, so the selected MFE never loads, iframes included. Without child nodes the entity node itself renders the error and the side navigation falls back to the parent. `errorComponentConfig` turns a failed `/rest/config/<entity>` into the same error.
+- **A write fails** (create, update, delete): `ErrorHandlerService.handleError` alerts and the page stays as it is.
+- **A URL matches no node**: `pageNotFoundHandler` renders the global `/error/404` node with `keepURL`, without a side navigation, because there is no node to stay on.
+
+A portal enables node failures by passing `customNodeProcessingService: CustomNodeProcessingServiceImpl` and `errorComponentConfig` to `providePortal`.
 
 ## Code Conventions
 

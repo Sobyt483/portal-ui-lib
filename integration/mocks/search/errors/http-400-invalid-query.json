@@ -1,0 +1,8 @@
+{
+  "status": 400,
+  "body": {
+    "status": 400,
+    "title": "Bad Request",
+    "detail": "The search query is invalid."
+  }
+}

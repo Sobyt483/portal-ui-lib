@@ -1,21 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { LuigiCoreService } from '@openmfp/portal-ui-lib';
-import { Resource } from '@platform-mesh/portal-ui-lib/models';
-import { luigiNavigateTo } from '@platform-mesh/portal-ui-lib/utils';
 
 @Injectable({ providedIn: 'root' })
 export class ErrorHandlerService {
   private luigiCoreService = inject(LuigiCoreService);
 
   handleError(error: any, msg?: string) {
-    if (this.redirectToErrorPage(error)) {
-      return;
-    }
-
-    this.showError(error, msg);
-  }
-
-  showError(error: any, msg?: string) {
     const message =
       error?.message || error?.errors?.map((e: any) => e.message).join('\n');
     this.luigiCoreService.showAlert({
@@ -27,30 +17,20 @@ export class ErrorHandlerService {
     console.error(error);
   }
 
-  redirectToErrorPage(error: any, replaceHistory = true): boolean {
+  errorCode(error: any): number {
     if (this.isUnauthorizedAccess(error)) {
-      this.navigateToErrorPage(403, replaceHistory);
-      return true;
+      return 403;
     }
 
-    if (this.isNotFound(error)) {
-      this.navigateToErrorPage(404, replaceHistory);
-      return true;
-    }
-
-    return false;
-  }
-
-  private navigateToErrorPage(error: string | number, replaceHistory = true) {
-    luigiNavigateTo(`/error/${error}`, replaceHistory);
-  }
-
-  handleResourcePendingDeletion(_resource: Resource) {
-    this.navigateToErrorPage(422);
-  }
-
-  private isNotFound(error: any): boolean {
-    return error?.statusCode === 404;
+    return (
+      [
+        error?.statusCode,
+        error?.status,
+        error?.networkError?.statusCode,
+        error?.networkError?.status,
+        error?.response?.status,
+      ].find(Boolean) ?? 500
+    );
   }
 
   private isUnauthorizedAccess(error: any): boolean {

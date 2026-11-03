@@ -1,0 +1,16 @@
+{
+  "status": 200,
+  "body": {
+    "data": {
+      "core_kcp_io": {
+        "v1alpha1": {
+          "LogicalCluster": {
+            "status": {
+              "phase": "Initializing"
+            }
+          }
+        }
+      }
+    }
+  }
+}

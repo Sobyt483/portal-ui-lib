@@ -1870,29 +1870,6 @@ describe('DetailViewComponent', () => {
       });
     });
 
-    it('should call handleResourcePendingDeletionError during readResource if resource has deletionTimestamp', () => {
-      const terminatingResource = {
-        metadata: {
-          name: 'test-resource',
-          deletionTimestamp: '2026-02-04T12:00:00Z',
-        },
-      };
-
-      mockResourceService.read.mockReturnValue(of(terminatingResource));
-
-      const newFixture = TestBed.createComponent(DetailView);
-      const newComponent = newFixture.componentInstance;
-
-      newComponent.context = component.context;
-      newComponent.LuigiClient = component.LuigiClient;
-
-      newFixture.detectChanges();
-
-      expect(
-        errorHandlerServiceMock.handleResourcePendingDeletion,
-      ).toHaveBeenCalledWith(terminatingResource);
-    });
-
     it('should handle undefined parentNavigationContext in navigateToParent method', () => {
       vi.clearAllMocks();
       const newFixture = TestBed.createComponent(DetailView);
@@ -2534,6 +2511,7 @@ describe('DetailViewComponent template', () => {
     addSearchParams = vi.fn();
     configChanged = vi.fn();
     namespaceServiceMock = mock();
+    errorHandlerServiceMock.errorCode.mockReturnValue(500);
 
     TestBed.configureTestingModule({
       providers: [
@@ -2602,21 +2580,19 @@ describe('DetailViewComponent template', () => {
 
     expect(find('mfp-dashboard').loading).toBe(true);
     expect(component.customActions()).toEqual([]);
-    expect(find('[data-testid="generic-detail-view-read-state"]')).toBeNull();
+    expect(find('[data-testid="generic-detail-view-error-state"]')).toBeNull();
     initial.error(new Error('Gateway unavailable'));
     fixture.detectChanges();
 
     expect(find('mfp-dashboard')).toBeNull();
-    expect(find('ui5-illustrated-message').titleText).toBe(
-      'Could not load resource',
-    );
+    expect(find('pm-error-state').code).toBe(500);
     expect(errorHandlerServiceMock.handleError).not.toHaveBeenCalled();
-    find('[data-testid="generic-detail-view-retry"]').click();
+    find('pm-error-state').dispatchEvent(new CustomEvent('retry'));
     component.retryRead();
     fixture.detectChanges();
     expect(mockResourceService.read).toHaveBeenCalledTimes(2);
     expect(find('mfp-dashboard').loading).toBe(true);
-    expect(find('[data-testid="generic-detail-view-retry"]')).toBeNull();
+    expect(find('pm-error-state')).toBeNull();
     expect(component.resource()).toBeUndefined();
 
     retry.next(loadedResource);
@@ -2636,46 +2612,49 @@ describe('DetailViewComponent template', () => {
     { name: 'undefined', response: of(undefined) },
     { name: 'no emission', response: EMPTY },
   ])(
-    'renders a distinct not-found state for $name and lets the user retry',
+    'renders the not-found state for $name and lets the user retry',
     ({ response }) => {
       mockResourceService.read
         .mockReturnValueOnce(response)
         .mockReturnValueOnce(of(loadedResource));
-      const { fixture, component, find, navigate } = createReactiveDetail();
+      const { fixture, component, find } = createReactiveDetail();
 
       expect(find('mfp-dashboard')).toBeNull();
-      expect(find('ui5-illustrated-message').name).toBe('NoEntries');
-      expect(find('ui5-illustrated-message').titleText).toBe(
-        'Resource not found',
-      );
+      expect(find('pm-error-state').code).toBe(404);
       expect(component.resource()).toBeUndefined();
       expect(component.customActions()).toEqual([]);
-      find('ui5-button:last-child').click();
-      expect(navigate).toHaveBeenCalledWith('/');
-      find('[data-testid="generic-detail-view-retry"]').click();
+      find('pm-error-state').dispatchEvent(new CustomEvent('retry'));
       fixture.detectChanges();
       expect(component.resource()).toEqual(loadedResource);
-      expect(find('ui5-illustrated-message')).toBeNull();
+      expect(find('pm-error-state')).toBeNull();
     },
   );
 
-  it('preserves authorization handling without presenting a retryable error', () => {
-    const error = new Error('Forbidden');
-    errorHandlerServiceMock.redirectToErrorPage.mockReturnValue(true);
-    mockResourceService.read.mockReturnValue(throwError(() => error));
-    const { component, find } = createReactiveDetail();
+  it.each([401, 403])(
+    'shows a %i read failure in place and lets the user retry',
+    (code) => {
+      const error = new Error('Read failed');
+      errorHandlerServiceMock.errorCode.mockReturnValue(code);
+      mockResourceService.read
+        .mockReturnValueOnce(throwError(() => error))
+        .mockReturnValueOnce(of(loadedResource));
+      const { fixture, component, find } = createReactiveDetail();
 
-    expect(errorHandlerServiceMock.redirectToErrorPage).toHaveBeenCalledWith(
-      error,
-    );
-    expect(find('mfp-dashboard')).toBeNull();
-    expect(find('ui5-illustrated-message')).toBeNull();
-    expect(component.customActions()).toEqual([]);
-    component.retryRead();
-    expect(mockResourceService.read).toHaveBeenCalledTimes(1);
-  });
+      expect(errorHandlerServiceMock.errorCode).toHaveBeenCalledWith(error);
+      expect(find('mfp-dashboard')).toBeNull();
+      expect(find('pm-error-state').code).toBe(code);
+      expect(component.customActions()).toEqual([]);
 
-  it('preserves the pending-deletion redirect and keeps resource actions hidden', () => {
+      find('pm-error-state').dispatchEvent(new CustomEvent('retry'));
+      fixture.detectChanges();
+
+      expect(mockResourceService.read).toHaveBeenCalledTimes(2);
+      expect(component.resource()).toEqual(loadedResource);
+      expect(find('pm-error-state')).toBeNull();
+    },
+  );
+
+  it('shows a pending deletion in place without a retry and keeps resource actions hidden', () => {
     const pending = {
       metadata: {
         name: 'cluster-1',
@@ -2685,12 +2664,11 @@ describe('DetailViewComponent template', () => {
     mockResourceService.read.mockReturnValue(of(pending));
     const { component, find } = createReactiveDetail();
 
-    expect(
-      errorHandlerServiceMock.handleResourcePendingDeletion,
-    ).toHaveBeenCalledWith(pending);
+    expect(find('mfp-dashboard')).toBeNull();
+    expect(find('pm-error-state').code).toBe(422);
+    expect(find('pm-error-state').retryable).toBe(false);
     expect(component.resource()).toBeUndefined();
     expect(component.customActions()).toEqual([]);
-    expect(find('mfp-dashboard')).toBeNull();
   });
 
   it('hides old actions immediately and cancels the active retry when context changes', () => {
@@ -2734,31 +2712,25 @@ describe('DetailViewComponent template', () => {
     expect(find('mfp-dashboard').loading).toBe(false);
   });
 
-  it.each([false, true])(
-    'ignores a stale read error before cleanup (forbidden=%s)',
-    (forbidden) => {
-      const oldRead = new Subject<any>();
-      const current = new Subject<any>();
-      mockResourceService.read
-        .mockReturnValueOnce(oldRead)
-        .mockReturnValueOnce(current);
-      errorHandlerServiceMock.redirectToErrorPage.mockReturnValue(forbidden);
-      const { fixture, component, context, find } = createReactiveDetail();
+  it('ignores a stale read error before cleanup', () => {
+    const oldRead = new Subject<any>();
+    const current = new Subject<any>();
+    mockResourceService.read
+      .mockReturnValueOnce(oldRead)
+      .mockReturnValueOnce(current);
+    const { fixture, component, context, find } = createReactiveDetail();
 
-      fixture.componentRef.setInput('context', {
-        ...context,
-        resourceId: 'cluster-2',
-      });
-      oldRead.error(new Error('Forbidden'));
-      expect(
-        errorHandlerServiceMock.redirectToErrorPage,
-      ).not.toHaveBeenCalled();
-      expect(component.customActions()).toEqual([]);
-      fixture.detectChanges();
-      expect(find('mfp-dashboard').loading).toBe(true);
-      expect(find('ui5-illustrated-message')).toBeNull();
-    },
-  );
+    fixture.componentRef.setInput('context', {
+      ...context,
+      resourceId: 'cluster-2',
+    });
+    oldRead.error(new Error('Forbidden'));
+    expect(errorHandlerServiceMock.errorCode).not.toHaveBeenCalled();
+    expect(component.customActions()).toEqual([]);
+    fixture.detectChanges();
+    expect(find('mfp-dashboard').loading).toBe(true);
+    expect(find('pm-error-state')).toBeNull();
+  });
 
   it('cancels a retry on destruction', () => {
     const retry = new Subject<any>();
@@ -2810,7 +2782,7 @@ describe('DetailViewComponent template', () => {
       });
       fixture.detectChanges();
 
-      expect(find('ui5-illustrated-message').subtitleText).toBe(
+      expect(find('pm-error-state').subtitle).toBe(
         'Select a namespace and try again.',
       );
       expect(
@@ -2820,9 +2792,7 @@ describe('DetailViewComponent template', () => {
           ),
         ].map((option: any) => option.value),
       ).toEqual(['team-a', 'team-b']);
-      expect(find('[data-testid="generic-detail-view-retry"]').disabled).toBe(
-        true,
-      );
+      expect(find('pm-error-state').retryDisabled).toBe(true);
 
       component.retryRead();
       expect(configChanged).not.toHaveBeenCalled();
@@ -2835,13 +2805,30 @@ describe('DetailViewComponent template', () => {
         true,
       );
       expect(configChanged).not.toHaveBeenCalled();
-      expect(find('[data-testid="generic-detail-view-retry"]').disabled).toBe(
-        false,
-      );
+      expect(find('pm-error-state').retryDisabled).toBe(false);
 
-      find('[data-testid="generic-detail-view-retry"]').click();
+      find('pm-error-state').dispatchEvent(new CustomEvent('retry'));
       expect(configChanged).toHaveBeenCalledTimes(1);
       expect(mockResourceService.read).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not ask for a namespace when the session has expired', () => {
+      errorHandlerServiceMock.errorCode.mockReturnValue(401);
+      mockResourceService.read.mockReturnValue(
+        throwError(() => new Error('Unauthorized')),
+      );
+      const { fixture, find } = createReactiveDetail({
+        resourceDefinition: namespacedDefinition,
+        namespaces: ['team-a'],
+      });
+      fixture.detectChanges();
+
+      expect(find('pm-error-state').code).toBe(401);
+      expect(find('pm-error-state').subtitle).toBeUndefined();
+      expect(find('pm-error-state').retryDisabled).toBe(false);
+      expect(
+        find('[data-testid="generic-detail-view-namespace-select"]'),
+      ).toBeNull();
     });
 
     it('removes the namespace parameter and disables retry again when the placeholder is selected', () => {
@@ -2858,9 +2845,7 @@ describe('DetailViewComponent template', () => {
       selectNamespace(find, '');
       fixture.detectChanges();
 
-      expect(find('[data-testid="generic-detail-view-retry"]').disabled).toBe(
-        true,
-      );
+      expect(find('pm-error-state').retryDisabled).toBe(true);
       expect(addSearchParams).toHaveBeenLastCalledWith(
         { namespace: undefined },
         false,
@@ -2908,7 +2893,7 @@ describe('DetailViewComponent template', () => {
           ),
         ].map((option: any) => option.value),
       ).toEqual(['team-a', 'team-c']);
-      expect(errorHandlerServiceMock.showError).not.toHaveBeenCalled();
+      expect(errorHandlerServiceMock.handleError).not.toHaveBeenCalled();
     });
 
     it('alerts a failed namespace refresh and keeps the namespace options', () => {
@@ -2926,7 +2911,7 @@ describe('DetailViewComponent template', () => {
       find('[data-testid="generic-detail-view-namespace-refresh"]').click();
       fixture.detectChanges();
 
-      expect(errorHandlerServiceMock.showError).toHaveBeenCalledWith(
+      expect(errorHandlerServiceMock.handleError).toHaveBeenCalledWith(
         error,
         'Failed to read namespaces.',
       );
@@ -2946,17 +2931,13 @@ describe('DetailViewComponent template', () => {
       });
       fixture.detectChanges();
 
-      expect(find('ui5-illustrated-message').subtitleText).toBe(
-        'Please try again.',
-      );
+      expect(find('pm-error-state').subtitle).toBeUndefined();
       expect(
         find('[data-testid="generic-detail-view-namespace-select"]'),
       ).toBeNull();
-      expect(find('[data-testid="generic-detail-view-retry"]').disabled).toBe(
-        false,
-      );
+      expect(find('pm-error-state').retryDisabled).toBe(false);
 
-      find('[data-testid="generic-detail-view-retry"]').click();
+      find('pm-error-state').dispatchEvent(new CustomEvent('retry'));
       fixture.detectChanges();
 
       expect(configChanged).not.toHaveBeenCalled();

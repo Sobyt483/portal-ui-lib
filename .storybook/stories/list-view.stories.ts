@@ -1,28 +1,30 @@
-import { applicationConfig, moduleMetadata } from '@storybook/angular';
-import type { Meta, StoryObj } from '@storybook/angular';
 import { ListView } from '../../projects/wc/src/app/components/generic-ui/list-view/list-view.component';
 import {
-  ErrorHandlerService,
-  ResourceService,
-} from '@platform-mesh/portal-ui-lib/services';
-import {
+  CANNED_CLUSTER_RESOURCE,
   FAKE_ERROR_HANDLER_SERVICE,
+  FAKE_I18N_SERVICE,
   FAKE_INSTANCE_PERMISSIONS_SERVICE,
+  MANY_CLUSTER_RESOURCES,
+  RICH_CLUSTER_RESOURCES,
   makeDefaultResourceServiceStub,
   makeEmptyResourceServiceStub,
   makeErrorResourceServiceStub,
   makeManyResourceServiceStub,
   makePaginatedResourceServiceStub,
-  CANNED_CLUSTER_RESOURCE,
-  MANY_CLUSTER_RESOURCES,
-  RICH_CLUSTER_RESOURCES,
 } from './showcase-mocks';
 import {
   CLUSTERS_CONTEXT,
   CLUSTERS_RICH_CONTEXT,
   LUIGI_CLIENT,
 } from './showcase-presets';
+import { I18nService } from '@openmfp/portal-ui-lib';
+import {
+  ErrorHandlerService,
+  ResourceService,
+} from '@platform-mesh/portal-ui-lib/services';
 import { InstancePermissionsService } from '@platform-mesh/portal-ui-lib/services';
+import { applicationConfig, moduleMetadata } from '@storybook/angular';
+import type { Meta, StoryObj } from '@storybook/angular';
 
 // ---------------------------------------------------------------------------
 // Meta
@@ -38,6 +40,7 @@ const meta: Meta<ListView> = {
           provide: ErrorHandlerService,
           useValue: FAKE_ERROR_HANDLER_SERVICE,
         },
+        { provide: I18nService, useValue: FAKE_I18N_SERVICE },
         {
           provide: InstancePermissionsService,
           useValue: FAKE_INSTANCE_PERMISSIONS_SERVICE,
@@ -98,8 +101,6 @@ export const Empty: Story = {
 
 // ---------------------------------------------------------------------------
 // Error — list fails → UnableToLoad illustrated message + Retry button
-// Note: Error message must NOT contain "forbidden"/"access denied" or the
-// ErrorHandlerService trap fires a redirect instead of showing error UI.
 // ---------------------------------------------------------------------------
 
 export const Error: Story = {

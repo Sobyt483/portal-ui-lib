@@ -4,6 +4,7 @@ import {
   processGroupFields,
   withRouteNamespace,
 } from '../../../utils';
+import { ErrorState } from '../../error/error-state.component';
 import { ResourceFormModal } from '../resource-form-modal/resource-form-modal.component';
 import { ResourceLogo } from '../resource-logo/resource-logo.component';
 import { AVAILABLE_CARDS, CARDS, SECTIONS } from './cards';
@@ -27,7 +28,6 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { IllustratedMessage } from '@fundamental-ngx/ui5-webcomponents-fiori/illustrated-message';
 import { Button } from '@fundamental-ngx/ui5-webcomponents/button';
 import { Label } from '@fundamental-ngx/ui5-webcomponents/label';
 import { Option } from '@fundamental-ngx/ui5-webcomponents/option';
@@ -68,21 +68,22 @@ import {
   permissionKey,
 } from '@platform-mesh/portal-ui-lib/utils';
 import { UI5CustomEvent } from '@ui5/webcomponents-base';
-import '@ui5/webcomponents-fiori/dist/illustrations/NoEntries.js';
-import '@ui5/webcomponents-fiori/dist/illustrations/UnableToLoad.js';
 import _Select from '@ui5/webcomponents/dist/Select.js';
 import { Subject, Subscription, firstValueFrom } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
 
-type ResourceReadState =
-  'loading' | 'ready' | 'error' | 'not-found' | 'redirecting';
+type ResourceReadState = 'loading' | 'ready' | 'error';
+
+const SESSION_EXPIRED_ERROR_CODE = 401;
+const RESOURCE_NOT_FOUND_ERROR_CODE = 404;
+const RESOURCE_PENDING_DELETION_ERROR_CODE = 422;
 
 @Component({
   selector: 'pm-detail-view',
   standalone: true,
   imports: [
     NgTemplateOutlet,
-    IllustratedMessage,
+    ErrorState,
     Button,
     Label,
     Option,
@@ -114,7 +115,16 @@ export class DetailView {
     undefined,
   );
   private readonly readState = signal<ResourceReadState>('loading');
+  protected readonly readErrorCode = signal(0);
+  protected readonly canRetryRead = computed(
+    () => this.readErrorCode() !== RESOURCE_PENDING_DELETION_ERROR_CODE,
+  );
   protected readonly namespaceRequired = signal(false);
+  protected readonly showNamespaceSelection = computed(
+    () =>
+      this.namespaceRequired() &&
+      this.readErrorCode() !== SESSION_EXPIRED_ERROR_CODE,
+  );
   protected readonly selectedNamespace = signal<string | undefined>(undefined);
   protected readonly namespaces = linkedSignal(
     () => this.context().namespaces ?? [],
@@ -437,33 +447,36 @@ export class DetailView {
         next: (result) => {
           if (!isCurrentRead()) return;
           if (result?.metadata?.deletionTimestamp) {
-            this.readState.set('redirecting');
-            this.errorHandlerService.handleResourcePendingDeletion(result);
+            this.showReadError(RESOURCE_PENDING_DELETION_ERROR_CODE);
             return;
           }
           this.resource.set(result ?? undefined);
-          this.readState.set(result ? 'ready' : 'not-found');
+          if (result) {
+            this.readState.set('ready');
+          } else {
+            this.showReadError(RESOURCE_NOT_FOUND_ERROR_CODE);
+          }
         },
         error: (error) => {
           if (!isCurrentRead()) return;
-          this.readState.set(
-            this.errorHandlerService.redirectToErrorPage(error)
-              ? 'redirecting'
-              : 'error',
-          );
+          this.showReadError(this.errorHandlerService.errorCode(error));
         },
         complete: () => {
           if (isCurrentRead() && untracked(this.readState) === 'loading') {
-            this.readState.set('not-found');
+            this.showReadError(RESOURCE_NOT_FOUND_ERROR_CODE);
           }
         },
       });
     return this.resourceReadSubscription;
   }
 
+  private showReadError(code: number) {
+    this.readErrorCode.set(code);
+    this.readState.set('error');
+  }
+
   retryRead() {
-    const state = untracked(this.viewState);
-    if (state !== 'error' && state !== 'not-found') {
+    if (untracked(this.viewState) !== 'error') {
       return;
     }
 
@@ -481,7 +494,10 @@ export class DetailView {
     this.namespaceService.list(this.effectiveContext()).subscribe({
       next: (namespaces) => this.namespaces.set(namespaces),
       error: (error) =>
-        this.errorHandlerService.showError(error, 'Failed to read namespaces.'),
+        this.errorHandlerService.handleError(
+          error,
+          'Failed to read namespaces.',
+        ),
     });
   }
 

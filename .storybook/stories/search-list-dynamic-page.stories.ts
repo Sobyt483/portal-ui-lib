@@ -1,30 +1,32 @@
-import { applicationConfig, moduleMetadata } from '@storybook/angular';
-import type { Meta, StoryObj } from '@storybook/angular';
 import { SearchListDynamicPage } from '../../projects/wc/src/app/components/generic-ui/search-list-dynamic-page/search-list-dynamic-page.component';
 import { OpenSearchService } from '../../projects/wc/src/app/components/generic-ui/search-list-dynamic-page/services/open-search.service';
+import {
+  CANNED_CLUSTER_RESOURCE,
+  FAKE_ERROR_HANDLER_SERVICE,
+  FAKE_I18N_SERVICE,
+  FAKE_INSTANCE_PERMISSIONS_SERVICE,
+  makeDefaultResourceServiceStub,
+  makeFakeLuigiClientWithModal,
+  makePagedOpenSearchServiceStub,
+} from './showcase-mocks';
+import {
+  CANNED_OPEN_SEARCH_RESULTS,
+  CANNED_OPEN_SEARCH_RESULTS_PAGINATED,
+  CANNED_OPEN_SEARCH_RESULTS_RICH,
+  CLUSTERS_CONTEXT,
+  CLUSTERS_MODAL_CONTEXT,
+  CLUSTERS_RICH_CONTEXT,
+  LUIGI_CLIENT,
+  WITH_ACTIONS_CONTEXT,
+} from './showcase-presets';
+import { I18nService } from '@openmfp/portal-ui-lib';
 import {
   ErrorHandlerService,
   InstancePermissionsService,
   ResourceService,
 } from '@platform-mesh/portal-ui-lib/services';
-import {
-  FAKE_ERROR_HANDLER_SERVICE,
-  FAKE_INSTANCE_PERMISSIONS_SERVICE,
-  makeDefaultResourceServiceStub,
-  makeFakeLuigiClientWithModal,
-  makePagedOpenSearchServiceStub,
-  CANNED_CLUSTER_RESOURCE,
-} from './showcase-mocks';
-import {
-  CLUSTERS_CONTEXT,
-  CLUSTERS_MODAL_CONTEXT,
-  CLUSTERS_RICH_CONTEXT,
-  WITH_ACTIONS_CONTEXT,
-  CANNED_OPEN_SEARCH_RESULTS,
-  CANNED_OPEN_SEARCH_RESULTS_RICH,
-  CANNED_OPEN_SEARCH_RESULTS_PAGINATED,
-  LUIGI_CLIENT,
-} from './showcase-presets';
+import { applicationConfig, moduleMetadata } from '@storybook/angular';
+import type { Meta, StoryObj } from '@storybook/angular';
 import { of, throwError } from 'rxjs';
 
 // ---------------------------------------------------------------------------
@@ -40,9 +42,7 @@ const SEARCH_EMPTY_SERVICE: Partial<OpenSearchService> = {
     of({ results: [], totalCount: 0, source: 'mock', nextCursor: '' }),
 };
 
-/** Error message must NOT contain "forbidden"/"access denied" to avoid
- *  ErrorHandlerService.isUnauthorizedAccess trap. Status 500 shows
- *  UnableToLoad + Retry. Status 403 shows tnt/UnsuccessfulAuth. */
+/** Status 500 shows UnableToLoad + Retry. Status 403 shows tnt/UnsuccessfulAuth. */
 const SEARCH_ERROR_SERVICE: Partial<OpenSearchService> = {
   listResources: (_ctx: any, _req: any) =>
     throwError(() => ({
@@ -75,6 +75,7 @@ const meta: Meta<SearchListDynamicPage> = {
           provide: ErrorHandlerService,
           useValue: FAKE_ERROR_HANDLER_SERVICE,
         },
+        { provide: I18nService, useValue: FAKE_I18N_SERVICE },
         {
           provide: InstancePermissionsService,
           useValue: FAKE_INSTANCE_PERMISSIONS_SERVICE,
@@ -269,7 +270,9 @@ export const Paginated: Story = {
       providers: [
         {
           provide: OpenSearchService,
-          useValue: makePagedOpenSearchServiceStub(CANNED_OPEN_SEARCH_RESULTS_PAGINATED),
+          useValue: makePagedOpenSearchServiceStub(
+            CANNED_OPEN_SEARCH_RESULTS_PAGINATED,
+          ),
         },
         {
           provide: ResourceService,

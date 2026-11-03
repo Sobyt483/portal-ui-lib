@@ -4,67 +4,54 @@ import {
   AuthService,
   ConfigService,
   EnvConfigService,
-  LuigiCoreService,
 } from '@openmfp/portal-ui-lib';
-import { LogicalCluster } from '@platform-mesh/portal-ui-lib/models';
-import { EMPTY, Subject, exhaustMap, filter } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class OrganizationReadyService {
   private configService = inject(ConfigService);
   private envConfigService = inject(EnvConfigService);
-  private luigiCoreService = inject(LuigiCoreService);
   private logicalClusterService = inject(LogicalClusterService);
   private authService = inject(AuthService);
 
   private isReady = false;
-  private check$ = new Subject<void>();
+  private pendingCheck?: Promise<boolean>;
 
-  constructor() {
-    void this.initChecks();
+  public isOrganizationReady(): Promise<boolean> {
+    if (this.isReady) {
+      return Promise.resolve(true);
+    }
+
+    this.pendingCheck ??= this.readOrganizationReady().finally(() => {
+      this.pendingCheck = undefined;
+    });
+
+    return this.pendingCheck;
   }
 
-  private async initChecks() {
+  private async readOrganizationReady(): Promise<boolean> {
     const portalConfig = await this.configService.getPortalConfig();
     const { idpName } = await this.envConfigService.getEnvConfig();
 
     if (idpName === 'welcome') {
-      return;
+      return true;
     }
 
-    this.check$
-      .pipe(
-        filter(() => !this.isReady),
-        exhaustMap(() =>
-          this.logicalClusterService
-            .read({
-              portalContext: {
-                crdGatewayApiUrl:
-                  portalConfig.portalContext['crdGatewayApiUrl'],
-              },
-              token: this.authService.getToken(),
-              accountId: idpName,
-            })
-            .pipe(
-              catchError((error) => {
-                console.error('Org check failed', error);
-                // Return EMPTY so the exhaustMap completes without killing the check$ stream
-                return EMPTY;
-              }),
-            ),
-        ),
-        map((res: LogicalCluster) => {
-          this.isReady = res.status.phase === 'Ready';
-          if (!this.isReady) {
-            this.luigiCoreService.navigation().navigate('/error/503');
-          }
+    try {
+      const logicalCluster = await firstValueFrom(
+        this.logicalClusterService.read({
+          portalContext: {
+            crdGatewayApiUrl: portalConfig.portalContext['crdGatewayApiUrl'],
+          },
+          token: this.authService.getToken(),
+          accountId: idpName,
         }),
-      )
-      .subscribe();
-  }
-
-  public checkOrganizationReady() {
-    this.check$.next();
+      );
+      this.isReady = logicalCluster.status.phase === 'Ready';
+      return this.isReady;
+    } catch (error) {
+      console.error('Org check failed', error);
+      return true;
+    }
   }
 }

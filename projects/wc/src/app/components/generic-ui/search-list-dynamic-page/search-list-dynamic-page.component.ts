@@ -6,10 +6,12 @@ import {
   resolveContextPlaceholders,
   snapshotUrl,
 } from '../../../utils';
+import { ErrorState } from '../../error/error-state.component';
 import { ResourceFormModal } from '../resource-form-modal/resource-form-modal.component';
 import { ResourceLogo } from '../resource-logo/resource-logo.component';
 import { InstancePermissionsStore } from '../store/instance-permissions-store.service';
 import { OpenSearchService } from './services/open-search.service';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -84,6 +86,7 @@ import { catchError, finalize, map } from 'rxjs/operators';
     ResourceField,
     ResourceFormModal,
     DeclarativeTable,
+    ErrorState,
     TabContainer,
     Tab,
     Input,
@@ -342,6 +345,7 @@ export class SearchListDynamicPage implements OnInit {
     }
 
     this.listSubscription?.unsubscribe();
+    this.error.set(null);
 
     const page = this.currentPage();
     const limit = this.paginationLimit();
@@ -397,13 +401,19 @@ export class SearchListDynamicPage implements OnInit {
         error: (error: any) => {
           this.error.set({
             status: error.status ?? 400,
-            message: error?.detail ?? error?.message,
+            message: this.readErrorDetail(error),
             title: error.title,
             withRetryButton: true,
           });
-          this.errorHandlerService.handleError(error);
+          console.error(error);
         },
       });
+  }
+
+  private readErrorDetail(error: any): string | undefined {
+    return error instanceof HttpErrorResponse
+      ? error.error?.detail
+      : (error?.detail ?? error?.message);
   }
 
   private loadFilterCounts(): void {

@@ -1,0 +1,20 @@
+{
+  "status": 200,
+  "body": {
+    "data": {
+      "core_platform_mesh_io": {
+        "v1alpha1": {
+          "Account": {
+            "metadata": {
+              "deletionTimestamp": "2026-02-04T12:00:00Z"
+            },
+            "spec": {
+              "displayName": "Display name of {{accountName}}",
+              "description": "Description of {{accountName}}"
+            }
+          }
+        }
+      }
+    }
+  }
+}

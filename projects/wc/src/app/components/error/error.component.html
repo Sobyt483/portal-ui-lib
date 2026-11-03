@@ -1,22 +1,6 @@
-@let configVM = config();
-@if (configVM.scene) {
-  <div class="page" data-testid="error-view">
-    <div class="container">
-      <ui5-illustrated-message data-testid="error-view-illustration" [name]="configVM.scene">
-        <ui5-title data-testid="error-view-title" slot="title" level="H1">{{
-          configVM.illustratedMessageTitle
-        }}</ui5-title>
-        <div slot="subtitle">
-          <p>{{ configVM.illustratedMessageText }}</p>
-        </div>
-        <div>
-          @for (button of configVM.buttons; track button.url) {
-            <ui5-button [attr.data-testid]="'error-view-button-' + button.label" design="Transparent" (click)="goTo(button)">
-              {{ button.label }}
-            </ui5-button>
-          }
-        </div>
-      </ui5-illustrated-message>
-    </div>
-  </div>
-}
+<pm-error-state
+  data-testid="error-view"
+  [code]="code()"
+  [retryable]="!!entityErrorCode()"
+  (retry)="retry()"
+/>

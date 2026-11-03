@@ -1,3 +1,4 @@
+import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
 const luigiWebComponentTagPrefix = 'luigi-wc-';
@@ -11,11 +12,17 @@ export class PortalShell {
   static readonly selectedNavigationItemClass = /\bis-selected\b/;
 
   readonly alert: Locator;
+  readonly hiddenSideNavigation: Locator;
+  readonly sideNavigationItems: Locator;
   private readonly page: Page;
 
   constructor(page: Page) {
     this.page = page;
     this.alert = page.getByTestId('luigi-alert');
+    this.hiddenSideNavigation = page.locator('.no-side-nav');
+    this.sideNavigationItems = page.locator(
+      '.fd-navigation__link[data-testid]',
+    );
   }
 
   async open(): Promise<void> {
@@ -38,6 +45,23 @@ export class PortalShell {
       .getByRole('link', {
         name: new RegExp(`^${this.escapeForRegExp(label)} \\d+ of \\d+$`),
       });
+  }
+
+  async expectSideNavigation(
+    nodes: NavigationNode[],
+    selectedNode: NavigationNode,
+  ): Promise<void> {
+    await expect(this.sideNavigationItems).toHaveText(
+      nodes.map((node) => node.label),
+    );
+    await expect(this.navigationItem(selectedNode)).toHaveClass(
+      PortalShell.selectedNavigationItemClass,
+    );
+  }
+
+  async expectNoSideNavigation(): Promise<void> {
+    await expect(this.hiddenSideNavigation).toHaveCount(1);
+    await expect(this.sideNavigationItems).toHaveCount(0);
   }
 
   async renderedViews(): Promise<string[]> {

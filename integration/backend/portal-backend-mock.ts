@@ -1,20 +1,23 @@
-import { gatewayMocks, restMocks } from '../mocks/mock-catalog.ts';
+import { gatewayMocks, restMocks, searchMocks } from '../mocks/mock-catalog.ts';
 import { loadMockResponse } from '../mocks/mock-response.ts';
 import type { MockVariables } from '../mocks/mock-response.ts';
 import { isGatewayPath, parseGatewayRequest } from './gateway-request.ts';
 import type { GatewayOperation } from './gateway-request.ts';
 import type { Page, Route } from '@playwright/test';
 
-export type BackendEndpoint = GatewayOperation | 'accountEntityConfig';
+export type BackendEndpoint =
+  GatewayOperation | 'accountEntityConfig' | 'searchResources';
 
 export interface BackendRequest {
   endpoint: BackendEndpoint;
   accountName: string | undefined;
   namespace?: string;
+  searchTerm?: string;
 }
 
 const accountEntityConfigPath = '/rest/config/core_platform-mesh_io_account';
 const accountEntityConfigAccountParam = 'core_platform-mesh_io_account';
+const searchApiPath = '/api/search';
 
 export class PortalBackendMock {
   readonly requests: BackendRequest[] = [];
@@ -34,6 +37,7 @@ export class PortalBackendMock {
   };
   private readonly gatewayOverrides = new Map<string, string>();
   private readonly accountEntityConfigOverrides = new Map<string, string>();
+  private searchResponse: string = searchMocks.resultsWithTwoWidgets;
   private readonly page: Page;
   private readonly portalOrigin: string;
 
@@ -72,6 +76,31 @@ export class PortalBackendMock {
       this.overrideKey('namespacesList', accountName),
       mockFile,
     );
+  }
+
+  respondToAccountsList(mockFile: string): void {
+    this.gatewayOverrides.set(
+      this.overrideKey('accountsList', undefined),
+      mockFile,
+    );
+  }
+
+  respondToHttpBinsList(accountName: string, mockFile: string): void {
+    this.gatewayOverrides.set(
+      this.overrideKey('httpBinsList', accountName),
+      mockFile,
+    );
+  }
+
+  respondToLogicalClusterRead(accountName: string, mockFile: string): void {
+    this.gatewayOverrides.set(
+      this.overrideKey('logicalClusterRead', accountName),
+      mockFile,
+    );
+  }
+
+  respondToSearch(mockFile: string): void {
+    this.searchResponse = mockFile;
   }
 
   respondToAccountEntityConfig(accountName: string, mockFile: string): void {
@@ -120,6 +149,15 @@ export class PortalBackendMock {
           restMocks.accountEntityConfigWithDashboard,
         { accountName },
       );
+    }
+
+    if (request.method() === 'GET' && url.pathname === searchApiPath) {
+      this.requests.push({
+        endpoint: 'searchResources',
+        accountName: undefined,
+        searchTerm: url.searchParams.get('q') ?? undefined,
+      });
+      return this.fulfill(route, this.searchResponse);
     }
 
     if (request.method() === 'POST' && isGatewayPath(url.pathname)) {

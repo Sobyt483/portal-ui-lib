@@ -1,4 +1,5 @@
 export * from './services/custom-global-nodes.service';
+export * from './services/custom-node-processing.service';
 export * from './services/header-bar-config.service';
 export * from './services/luigi-extended-global-context-config.service';
 export * from './services/navigation-redirect-strategy.service';
@@ -7,3 +8,4 @@ export * from './services/node-context-processing.service';
 export * from './services/router-config.service';
 export * from './services/user-profile-config.service';
 export * from './persistent-panel/open-persistent-panel.listener';
+export { errorComponentConfig } from './utils/entity-error-node.util';

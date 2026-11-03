@@ -6,6 +6,7 @@ export interface PortalLuigiNode extends LuigiNode {
   defineEntity?: PMEntityDefinition;
   context: PortalNodeContext;
   parent?: PortalLuigiNode;
+  keepSelectedForChildren?: boolean;
 }
 
 export interface PMEntityDefinition extends EntityDefinition {

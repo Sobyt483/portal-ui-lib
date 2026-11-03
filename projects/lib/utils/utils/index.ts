@@ -13,4 +13,3 @@ export * from './resource-sanitizer';
 export * from './delete-property-by-path';
 export * from './flatten-field-tree';
 export * from './set-property-by-path';
-export * from './luigi-navigation';

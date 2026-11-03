@@ -1,10 +1,15 @@
-import { ResourceTableCard } from './resource-table-card/resource-table-card.component';
+import { ErrorState } from '../../error/error-state.component';
+import {
+  ResourceTableCard,
+  ResourceTableReadFailure,
+} from './resource-table-card/resource-table-card.component';
 import {
   ChangeDetectionStrategy,
   Component,
   ViewEncapsulation,
   computed,
   input,
+  signal,
 } from '@angular/core';
 import { LuigiClient } from '@luigi-project/client/luigi-element';
 import {
@@ -26,11 +31,15 @@ Dashboard.registerAngularComponents([ResourceTableCard]);
   styleUrls: ['./list-view.component.scss'],
   encapsulation: ViewEncapsulation.Emulated,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Dashboard],
+  imports: [Dashboard, ErrorState],
 })
 export class ListView {
   LuigiClient = input.required<LuigiClient>();
   context = input.required<ResourceNodeContext>();
+
+  protected readFailure = signal<ResourceTableReadFailure | null>(null);
+  private onReadFailureChange = (failure: ResourceTableReadFailure | null) =>
+    this.readFailure.set(failure);
 
   resourceDefinition = computed(() => this.context().resourceDefinition);
 
@@ -62,6 +71,7 @@ export class ListView {
       componentInputs: {
         LuigiClient: this.LuigiClient(),
         context: this.context(),
+        readFailureChange: this.onReadFailureChange,
       },
     },
   ]);

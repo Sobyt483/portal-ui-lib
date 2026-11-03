@@ -94,26 +94,34 @@
         }
       </ui5-tabcontainer>
     }
-    <mfp-declarative-table
-    data-testid="search-list-table"
-    [columns]="columns()"
-    [resources]="tableResources()"
-    [loading]="loading()"
-    [permissions]="instancePermissionsStore.permissions()"
-    [totalItemsCount]="totalItemsCount()"
-    [paginationLimit]="paginationLimit()"
-    [hasMore]="hasMore()"
-    [currentPage]="currentPage()"
-    [error]="error()"
-    itemsPerPageLabel="Results per Page"
-    totalItemsLabel="Results"
-    loadMode="pager"
-    (buttonClick)="genericActionHandler($event)"
-    (tableRowClicked)="navigateToResource($event)"
-    (pageChange)="onPageChange($event)"
-    (paginationLimitChanged)="onLimitChange($event)"
-    (retry)="list()"
-  />
+    @if (error(); as listError) {
+      <pm-error-state
+        data-testid="search-list-error-state"
+        [code]="listError.status!"
+        [subtitle]="listError.message"
+        [retryable]="!!listError.withRetryButton"
+        (retry)="list()"
+      />
+    } @else {
+      <mfp-declarative-table
+        data-testid="search-list-table"
+        [columns]="columns()"
+        [resources]="tableResources()"
+        [loading]="loading()"
+        [permissions]="instancePermissionsStore.permissions()"
+        [totalItemsCount]="totalItemsCount()"
+        [paginationLimit]="paginationLimit()"
+        [hasMore]="hasMore()"
+        [currentPage]="currentPage()"
+        itemsPerPageLabel="Results per Page"
+        totalItemsLabel="Results"
+        loadMode="pager"
+        (buttonClick)="genericActionHandler($event)"
+        (tableRowClicked)="navigateToResource($event)"
+        (pageChange)="onPageChange($event)"
+        (paginationLimitChanged)="onLimitChange($event)"
+      />
+    }
   </div>
 </ui5-dynamic-page>
 

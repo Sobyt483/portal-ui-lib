@@ -65,6 +65,11 @@ import {
 import { Subscription } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 
+export interface ResourceTableReadFailure {
+  code: number;
+  retry: () => void;
+}
+
 @Component({
   selector: 'pm-resource-table-card',
   standalone: true,
@@ -88,6 +93,8 @@ export class ResourceTableCard {
 
   LuigiClient = input.required<LuigiClient>();
   context = input.required<ResourceNodeContext>();
+  readFailureChange =
+    input<(failure: ResourceTableReadFailure | null) => void>();
 
   tableCard =
     viewChild.required<DeclarativeTableCard<Resource>>(DeclarativeTableCard);
@@ -235,6 +242,15 @@ export class ResourceTableCard {
       this.watchError.set(null);
       this.list(true);
       onCleanup(() => this.listSubscription?.unsubscribe());
+    });
+
+    effect(() => {
+      const readError = this.listError() || this.watchError();
+      this.readFailureChange()?.(
+        readError
+          ? { code: readError.status!, retry: () => this.retryList() }
+          : null,
+      );
     });
 
     effect((onCleanup) => {
@@ -431,9 +447,7 @@ export class ResourceTableCard {
         },
         error: (error) => {
           if (context !== this.context()) return;
-          if (!this.errorHandlerService.redirectToErrorPage(error)) {
-            this.watchError.set(this.mapError(error));
-          }
+          this.watchError.set(this.mapError(error));
         },
       });
   }
@@ -502,9 +516,7 @@ export class ResourceTableCard {
         },
         error: (error) => {
           if (context !== this.context()) return;
-          if (!this.errorHandlerService.redirectToErrorPage(error)) {
-            this.listError.set(this.mapError(error));
-          }
+          this.listError.set(this.mapError(error));
         },
       });
   }
@@ -538,6 +550,7 @@ export class ResourceTableCard {
 
   private mapError(error: any): TableErrorConfig {
     return {
+      status: this.errorHandlerService.errorCode(error),
       message: error.message,
       withRetryButton: true,
     };

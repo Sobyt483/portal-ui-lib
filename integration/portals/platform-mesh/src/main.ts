@@ -8,6 +8,7 @@ import {
 } from '@openmfp/portal-ui-lib';
 import {
   CustomGlobalNodesServiceImpl,
+  CustomNodeProcessingServiceImpl,
   CustomRoutingConfigServiceImpl,
   HeaderBarConfigServiceImpl,
   LuigiExtendedGlobalContextConfigServiceImpl,
@@ -16,6 +17,7 @@ import {
   NodeContextProcessingServiceImpl,
   OpenPersistentPanelListener,
   UserProfileConfigServiceImpl,
+  errorComponentConfig,
 } from '@platform-mesh/portal-ui-lib/portal-options';
 
 const portalOptions: PortalOptions = {
@@ -23,6 +25,8 @@ const portalOptions: PortalOptions = {
   nodeChangeHookConfigService: NodeChangeHookConfigServiceImpl,
   customMessageListeners: [OpenPersistentPanelListener],
   customGlobalNodesService: CustomGlobalNodesServiceImpl,
+  customNodeProcessingService: CustomNodeProcessingServiceImpl,
+  errorComponentConfig,
   nodeContextProcessingService: NodeContextProcessingServiceImpl,
   luigiExtendedGlobalContextConfigService:
     LuigiExtendedGlobalContextConfigServiceImpl,

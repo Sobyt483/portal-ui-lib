@@ -254,8 +254,6 @@ export function makeEmptyResourceServiceStub(): Partial<ResourceService> {
 
 /**
  * Returns a ResourceService stub that errors on list/read.
- * IMPORTANT: error message must NOT contain "forbidden" or "access denied"
- * (ErrorHandlerService.isUnauthorizedAccess trap → redirecting state instead of error UI).
  */
 export function makeErrorResourceServiceStub(): Partial<ResourceService> {
   return {
@@ -405,8 +403,19 @@ export function makePagedOpenSearchServiceStub(results: OpenSearchResult): {
  */
 export const FAKE_ERROR_HANDLER_SERVICE: Partial<ErrorHandlerService> = {
   handleError: (_error: any) => {},
-  handleResourcePendingDeletion: (_resource: any) => {},
-  isUnauthorizedAccess: (_error: any) => false,
+  errorCode: (error: any) => error?.status ?? 500,
+};
+
+const ERROR_STATE_TEXTS: Record<string, string> = {
+  ERROR_CONTENT_NOT_FOUND_TITLE: "The content you specified can't be found",
+  ERROR_CONTENT_NOT_FOUND_TEXT:
+    'Check if the URL is correct or search in the Portal. If this problem persists, create an issue.',
+  SESSION_EXPIRED: 'Your session has expired.',
+  SIGN_IN_HINT: 'Sign in again to continue working on awesome things!',
+};
+
+export const FAKE_I18N_SERVICE = {
+  getTranslationAsync: async (key: string) => ERROR_STATE_TEXTS[key] ?? key,
 };
 
 /**

@@ -112,9 +112,11 @@ describe('NodeContextProcessingServiceImpl', () => {
       accountPath: mockAccountPath,
     });
     accountInfoService.read.mockReturnValue(of(mockAccountInfo));
+    organizationReadyService.isOrganizationReady.mockResolvedValue(true);
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -290,197 +292,79 @@ describe('NodeContextProcessingServiceImpl', () => {
       );
     });
 
-    it('should call checkOrganizationReady when accountInfo is retrieved', async () => {
+    it('should check the organization when accountInfo is retrieved', async () => {
       await service.processNodeContext(
         mockEntityId,
         mockEntityNode,
         mockContext,
       );
 
-      expect(
-        organizationReadyService.checkOrganizationReady,
-      ).toHaveBeenCalled();
+      expect(organizationReadyService.isOrganizationReady).toHaveBeenCalled();
+      expect(mockContext.entityErrorCode).toBeUndefined();
     });
 
-    it('should pass an accountInfoService error to the error handler', async () => {
+    it('should record 503 on the context when the organization is not ready', async () => {
+      organizationReadyService.isOrganizationReady.mockResolvedValue(false);
+
+      await service.processNodeContext(
+        mockEntityId,
+        mockEntityNode,
+        mockContext,
+      );
+
+      expect(mockContext.entityErrorCode).toBe(503);
+    });
+
+    it('should record the code of an accountInfoService error on the context and resolve', async () => {
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
       const error = new Error('API error');
       accountInfoService.read.mockReturnValue(throwError(() => error));
+      errorHandlerService.errorCode.mockReturnValue(404);
 
       await expect(
         service.processNodeContext(mockEntityId, mockEntityNode, mockContext),
       ).resolves.not.toThrow();
 
-      expect(errorHandlerService.handleError).toHaveBeenCalledWith(
-        error,
+      expect(errorHandlerService.errorCode).toHaveBeenCalledWith(error);
+      expect(mockContext.entityErrorCode).toBe(404);
+      expect(consoleSpy).toHaveBeenCalledWith(
         'Failed to read account info.',
+        error,
       );
       expect(
-        organizationReadyService.checkOrganizationReady,
+        organizationReadyService.isOrganizationReady,
       ).not.toHaveBeenCalled();
     });
 
-    it('should abandon the pending navigation when the accountInfoService error redirects to an error page', async () => {
-      const error = new Error('Forbidden');
-      const settled = vi.fn();
-      accountInfoService.read.mockReturnValue(throwError(() => error));
-      errorHandlerService.redirectToErrorPage.mockReturnValue(true);
-
-      void service
-        .processNodeContext(mockEntityId, mockEntityNode, mockContext)
-        .then(settled, settled);
-      await vi.waitFor(() =>
-        expect(errorHandlerService.redirectToErrorPage).toHaveBeenCalledWith(
-          error,
-          true,
-        ),
+    it('should not alert or keep the failure on the entity node when the accountInfoService fails', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      accountInfoService.read.mockReturnValue(
+        throwError(() => new Error('API error')),
       );
-      await new Promise((resolve) => setTimeout(resolve));
+      errorHandlerService.errorCode.mockReturnValue(500);
 
-      expect(settled).not.toHaveBeenCalled();
+      await service.processNodeContext(
+        mockEntityId,
+        mockEntityNode,
+        mockContext,
+      );
+
       expect(errorHandlerService.handleError).not.toHaveBeenCalled();
+      expect(mockEntityNode.context.entityErrorCode).toBeUndefined();
     });
 
-    describe('history entry of the error page redirect', () => {
-      const error = new Error('Forbidden');
-      let accountNode: PortalLuigiNode;
-
-      const redirectReplacesHistoryFrom = async (
-        locationPath: string,
-        entityNode: PortalLuigiNode,
-        dynamicEntityId: string,
-      ) => {
-        window.history.replaceState(null, '', locationPath);
-        void service.processNodeContext(
-          dynamicEntityId,
-          entityNode,
-          mockContext,
-        );
-        await vi.waitFor(() =>
-          expect(errorHandlerService.redirectToErrorPage).toHaveBeenCalled(),
-        );
-
-        return errorHandlerService.redirectToErrorPage.mock.calls[0][1];
-      };
-
-      beforeEach(() => {
-        accountInfoService.read.mockReturnValue(throwError(() => error));
-        errorHandlerService.redirectToErrorPage.mockReturnValue(true);
-
-        const homeNode = {
-          pathSegment: 'home',
-          context: {},
-        } as PortalLuigiNode;
-        const accountsNode = {
-          pathSegment: 'accounts',
-          context: {},
-          parent: homeNode,
-        } as PortalLuigiNode;
-        accountNode = {
-          pathSegment: ':accountId',
-          defineEntity: { type: 'account' },
-          context: {},
-          parent: accountsNode,
-        } as PortalLuigiNode;
+    it('should not process an entity below an already failed entity', async () => {
+      await service.processNodeContext(mockEntityId, mockEntityNode, {
+        ...mockContext,
+        entityErrorCode: 404,
       });
 
-      afterEach(() => {
-        window.history.replaceState(null, '', '/');
-      });
-
-      it('should add a history entry when the location has not reached the entity yet', async () => {
-        expect(
-          await redirectReplacesHistoryFrom(
-            '/home/accounts',
-            accountNode,
-            'a1',
-          ),
-        ).toBe(false);
-      });
-
-      it('should add a history entry when the location is within another entity', async () => {
-        expect(
-          await redirectReplacesHistoryFrom(
-            '/home/accounts/a11/accounts',
-            accountNode,
-            'a1',
-          ),
-        ).toBe(false);
-      });
-
-      it('should replace the history entry when the location is the entity', async () => {
-        expect(
-          await redirectReplacesHistoryFrom(
-            '/home/accounts/a1',
-            accountNode,
-            'a1',
-          ),
-        ).toBe(true);
-      });
-
-      it('should replace the history entry when the location is below the entity', async () => {
-        expect(
-          await redirectReplacesHistoryFrom(
-            '/home/accounts/a1/accounts',
-            accountNode,
-            'a1',
-          ),
-        ).toBe(true);
-      });
-
-      it('should add a history entry when a static ancestor segment differs from the location', async () => {
-        expect(
-          await redirectReplacesHistoryFrom(
-            '/home/projects/a1',
-            accountNode,
-            'a1',
-          ),
-        ).toBe(false);
-      });
-
-      it('should match any location segment for a dynamic ancestor segment', async () => {
-        const nestedAccountNode = {
-          pathSegment: ':subAccountId',
-          defineEntity: { type: 'account' },
-          context: {},
-          parent: {
-            pathSegment: 'accounts',
-            context: {},
-            parent: accountNode,
-          },
-        } as PortalLuigiNode;
-
-        expect(
-          await redirectReplacesHistoryFrom(
-            '/home/accounts/a1/accounts/b1',
-            nestedAccountNode,
-            'b1',
-          ),
-        ).toBe(true);
-      });
-
-      it('should compare a static entity segment with the location', async () => {
-        const staticEntityNode = {
-          pathSegment: 'home',
-          defineEntity: { type: 'main' },
-          context: { resourceDefinition: { name: 'main' } },
-        } as unknown as PortalLuigiNode;
-
-        expect(
-          await redirectReplacesHistoryFrom('/home', staticEntityNode, ''),
-        ).toBe(true);
-      });
-
-      it('should skip ancestors without a path segment', async () => {
-        accountNode.parent!.parent!.parent = { context: {} } as PortalLuigiNode;
-
-        expect(
-          await redirectReplacesHistoryFrom(
-            '/home/accounts/a1',
-            accountNode,
-            'a1',
-          ),
-        ).toBe(true);
-      });
+      expect(
+        crdGatewayKcpPatchResolver.resolveCrdGatewayKcpPath,
+      ).not.toHaveBeenCalled();
+      expect(accountInfoService.read).not.toHaveBeenCalled();
     });
 
     it('should handle special characters in CA certificate', async () => {
@@ -521,9 +405,7 @@ describe('NodeContextProcessingServiceImpl', () => {
         crdGatewayKcpPatchResolver.resolveCrdGatewayKcpPath,
       ).toHaveBeenCalled();
       expect(accountInfoService.read).toHaveBeenCalled();
-      expect(
-        organizationReadyService.checkOrganizationReady,
-      ).toHaveBeenCalled();
+      expect(organizationReadyService.isOrganizationReady).toHaveBeenCalled();
     });
 
     it('should handle empty entityNode context', async () => {
@@ -881,7 +763,7 @@ describe('NodeContextProcessingServiceImpl', () => {
         await service.processNodeContext(mockEntityId, mockEntityNode, ctx);
 
         expect(ctx.namespaces).toBeUndefined();
-        expect(errorHandlerService.showError).toHaveBeenCalledWith(
+        expect(errorHandlerService.handleError).toHaveBeenCalledWith(
           error,
           'Failed to read namespaces.',
         );
