@@ -26,7 +26,7 @@ import {
   isNamespacedResource,
   stripTypename,
 } from '@platform-mesh/portal-ui-lib/utils';
-import { gql } from 'apollo-angular';
+import { Apollo, gql } from 'apollo-angular';
 import type {
   Fields,
   NestedField,
@@ -35,7 +35,7 @@ import type {
 } from 'gql-query-builder';
 import * as gqlBuilder from 'gql-query-builder';
 import { Observable, throwError } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
 
 export interface ResourceRequestParams {
   entity: string;
@@ -399,34 +399,39 @@ export class ResourceService {
     const isNamespaced = isNamespacedResource(nodeContext);
     const { apiGroup, entity, version } = resourceDefinition;
     const namespace = this.getNamespace(nodeContext, resource);
+    const apollo = this.apolloFactory.apollo(nodeContext);
 
-    const mutationFields: any[] = [
-      {
-        operation: `create${entity}`,
-        variables: {
-          ...(isNamespaced && {
-            namespace: { type: 'String', value: namespace },
-          }),
-          object: {
-            type: `${buildGraphQLInputTypeName(apiGroup, version, entity)}!`,
-            value: resource,
+    return this.readInputTypeName(apollo, resourceDefinition).pipe(
+      switchMap((inputTypeName) => {
+        const mutationFields: any[] = [
+          {
+            operation: `create${entity}`,
+            variables: {
+              ...(isNamespaced && {
+                namespace: { type: 'String', value: namespace },
+              }),
+              object: {
+                type: `${inputTypeName}!`,
+                value: resource,
+              },
+            },
+            fields: ['__typename'],
           },
-        },
-        fields: ['__typename'],
-      },
-    ];
-    const queryOptions = this.calcQueryOptions(mutationFields, [
-      { operation: apiGroup },
-      { operation: version },
-    ]);
-    const mutation = gqlBuilder.mutation(queryOptions);
-    const query = this.parseGQLQuery(mutation.query);
+        ];
+        const queryOptions = this.calcQueryOptions(mutationFields, [
+          { operation: apiGroup },
+          { operation: version },
+        ]);
+        const mutation = gqlBuilder.mutation(queryOptions);
+        const query = this.parseGQLQuery(mutation.query);
 
-    return this.apolloFactory.apollo(nodeContext).mutate({
-      mutation: query,
-      fetchPolicy: 'no-cache',
-      variables: mutation.variables,
-    });
+        return apollo.mutate({
+          mutation: query,
+          fetchPolicy: 'no-cache',
+          variables: mutation.variables,
+        });
+      }),
+    );
   }
 
   update(
@@ -441,45 +446,82 @@ export class ResourceService {
     const namespace = this.getNamespace(nodeContext, resource);
 
     const cleanResource = stripTypename(resource);
+    const apollo = this.apolloFactory.apollo(
+      nodeContext,
+      readFromParentKcpPath,
+    );
 
-    const mutationFields: any[] = [
-      {
-        operation: `update${entity}`,
-        variables: {
-          ...(isNamespaced && {
-            namespace: { type: 'String', value: namespace },
-          }),
-          name: { type: 'String!', value: resource.metadata.name },
-          object: {
-            type: `${buildGraphQLInputTypeName(apiGroup, version, entity)}!`,
-            value: cleanResource,
+    return this.readInputTypeName(apollo, resourceDefinition).pipe(
+      switchMap((inputTypeName) => {
+        const mutationFields: any[] = [
+          {
+            operation: `update${entity}`,
+            variables: {
+              ...(isNamespaced && {
+                namespace: { type: 'String', value: namespace },
+              }),
+              name: { type: 'String!', value: resource.metadata.name },
+              object: {
+                type: `${inputTypeName}!`,
+                value: cleanResource,
+              },
+            },
+            fields: fields,
           },
-        },
-        fields: fields,
-      },
-    ];
-    const queryOptions = this.calcQueryOptions(mutationFields, [
-      { operation: apiGroup },
-      { operation: version },
-    ]);
-    const mutation = gqlBuilder.mutation(queryOptions);
-    const query = this.parseGQLQuery(mutation.query);
+        ];
+        const queryOptions = this.calcQueryOptions(mutationFields, [
+          { operation: apiGroup },
+          { operation: version },
+        ]);
+        const mutation = gqlBuilder.mutation(queryOptions);
+        const query = this.parseGQLQuery(mutation.query);
 
-    return this.apolloFactory
-      .apollo(nodeContext, readFromParentKcpPath)
-      .mutate({
-        mutation: query,
-        fetchPolicy: 'no-cache',
-        variables: mutation.variables,
-      })
+        return apollo.mutate({
+          mutation: query,
+          fetchPolicy: 'no-cache',
+          variables: mutation.variables,
+        });
+      }),
+      map((res: any) =>
+        getValueByPath(
+          res.data,
+          buildResourcePath(
+            { apiGroup, entity: `update${entity}`, version },
+            '.',
+          ),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Reads the `__typename` of the query type that holds the resource, e.g.
+   * `{ network_api_foo_bar { v1alpha1 { __typename } } }`, and derives the
+   * mutation input type name from it. The gateway generates the schema, so
+   * its type names are the only source of truth.
+   */
+  private readInputTypeName(
+    apollo: Apollo,
+    resourceDefinition: ResourceDefinition,
+  ): Observable<string> {
+    const { apiGroup, entity, version } = resourceDefinition;
+    const selection = [apiGroup, version]
+      .filter((field): field is string => !!field)
+      .reduceRight((inner, field) => `${field} { ${inner} }`, '__typename');
+
+    return apollo
+      .query({ query: this.parseGQLQuery(`query { ${selection} }`) })
       .pipe(
         map((res: any) =>
-          getValueByPath(
-            res.data,
-            buildResourcePath(
-              { apiGroup, entity: `update${entity}`, version },
-              '.',
+          buildGraphQLInputTypeName(
+            getValueByPath(
+              res.data,
+              buildResourcePath(
+                { apiGroup, entity: '__typename', version },
+                '.',
+              ),
             ),
+            entity,
           ),
         ),
       );

@@ -1,136 +1,116 @@
 import { buildGraphQLInputTypeName } from './build-graphql-input-type-name';
 
 describe('buildGraphQLInputTypeName', () => {
-  describe('core API types (empty group)', () => {
-    it('should produce V1Kind_Input for core v1 types', () => {
-      expect(buildGraphQLInputTypeName(undefined, 'v1', 'ConfigMap')).toBe(
-        'V1ConfigMap_Input',
-      );
-      expect(buildGraphQLInputTypeName(undefined, 'v1', 'Pod')).toBe(
-        'V1Pod_Input',
-      );
-      expect(buildGraphQLInputTypeName(undefined, 'v1', 'Secret')).toBe(
-        'V1Secret_Input',
-      );
-      expect(buildGraphQLInputTypeName(undefined, 'v1', 'Service')).toBe(
-        'V1Service_Input',
-      );
-      expect(buildGraphQLInputTypeName(undefined, 'v1', 'Namespace')).toBe(
-        'V1Namespace_Input',
-      );
-    });
-
-    it('should handle empty string group as no group', () => {
-      expect(buildGraphQLInputTypeName('', 'v1', 'ConfigMap')).toBe(
-        'V1ConfigMap_Input',
-      );
-    });
+  // Query type names as the gateway generates them with flect.Pascalize
+  // (gobuffalo/flect v1.0.3) for the API group in the comment.
+  it.each([
+    ['V1Query', 'ConfigMap', 'V1ConfigMap_Input'], // core
+    ['V1Query', 'Pod', 'V1Pod_Input'],
+    ['V1Query', 'Secret', 'V1Secret_Input'],
+    ['V1Query', 'Service', 'V1Service_Input'],
+    ['V1Query', 'Namespace', 'V1Namespace_Input'],
+    ['AppsV1Query', 'Deployment', 'AppsV1Deployment_Input'], // apps
+    ['AppsV1Query', 'StatefulSet', 'AppsV1StatefulSet_Input'],
+    ['AppsV1Query', 'DaemonSet', 'AppsV1DaemonSet_Input'],
+    ['AppsV1Query', 'ReplicaSet', 'AppsV1ReplicaSet_Input'],
+    ['NetworkingK8sIoV1Query', 'Ingress', 'NetworkingK8sIoV1Ingress_Input'], // networking.k8s.io
+    [
+      'NetworkingK8sIoV1Query',
+      'NetworkPolicy',
+      'NetworkingK8sIoV1NetworkPolicy_Input',
+    ],
+    ['BatchV1Query', 'Job', 'BatchV1Job_Input'], // batch
+    ['BatchV1Query', 'CronJob', 'BatchV1CronJob_Input'],
+    [
+      'AutoscalingV1Query', // autoscaling
+      'HorizontalPodAutoscaler',
+      'AutoscalingV1HorizontalPodAutoscaler_Input',
+    ],
+    ['CustomIoV1Query', 'Component', 'CustomIoV1Component_Input'], // custom.io
+    [
+      'MyCustomExampleIoV1beta1Query', // my-custom.example.io
+      'Widget',
+      'MyCustomExampleIoV1beta1Widget_Input',
+    ],
+    ['3scaleNetV1Query', 'APIProduct', '3scaleNetV1APIProduct_Input'], // 3scale.net
+    [
+      'CorePlatformMeshIoV1alpha1Query', // core.platform-mesh.io
+      'AccountInfo',
+      'CorePlatformMeshIoV1alpha1AccountInfo_Input',
+    ],
+    [
+      'CoreKcpIoV1alpha1Query', // core.kcp.io
+      'LogicalCluster',
+      'CoreKcpIoV1alpha1LogicalCluster_Input',
+    ],
+  ])('should turn %s and %s into %s', (queryTypeName, entity, expected) => {
+    expect(buildGraphQLInputTypeName(queryTypeName, entity)).toBe(expected);
   });
 
-  describe('apps group', () => {
-    it('should produce AppsV1Kind_Input for apps/v1 types', () => {
-      expect(buildGraphQLInputTypeName('apps', 'v1', 'Deployment')).toBe(
-        'AppsV1Deployment_Input',
-      );
-      expect(buildGraphQLInputTypeName('apps', 'v1', 'StatefulSet')).toBe(
-        'AppsV1StatefulSet_Input',
-      );
-      expect(buildGraphQLInputTypeName('apps', 'v1', 'DaemonSet')).toBe(
-        'AppsV1DaemonSet_Input',
-      );
-      expect(buildGraphQLInputTypeName('apps', 'v1', 'ReplicaSet')).toBe(
-        'AppsV1ReplicaSet_Input',
-      );
-    });
-  });
-
-  describe('networking.k8s.io group', () => {
-    it('should produce NetworkingK8sIoV1Kind_Input', () => {
+  describe('acronyms', () => {
+    it('should keep the acronyms the gateway writes in upper case', () => {
+      // network.api.foo.bar
       expect(
-        buildGraphQLInputTypeName('networking.k8s.io', 'v1', 'Ingress'),
-      ).toBe('NetworkingK8sIoV1Ingress_Input');
+        buildGraphQLInputTypeName('NetworkAPIFooBarV1alpha1Query', 'DNSZone'),
+      ).toBe('NetworkAPIFooBarV1alpha1DNSZone_Input');
       expect(
-        buildGraphQLInputTypeName('networking.k8s.io', 'v1', 'NetworkPolicy'),
-      ).toBe('NetworkingK8sIoV1NetworkPolicy_Input');
+        buildGraphQLInputTypeName('NetworkAPIFooBarV1alpha1Query', 'VPC'),
+      ).toBe('NetworkAPIFooBarV1alpha1VPC_Input');
     });
-  });
 
-  describe('batch group', () => {
-    it('should produce BatchV1Kind_Input', () => {
-      expect(buildGraphQLInputTypeName('batch', 'v1', 'Job')).toBe(
-        'BatchV1Job_Input',
-      );
-      expect(buildGraphQLInputTypeName('batch', 'v1', 'CronJob')).toBe(
-        'BatchV1CronJob_Input',
-      );
-    });
-  });
-
-  describe('autoscaling group', () => {
-    it('should produce AutoscalingV1Kind_Input', () => {
+    it('should keep an acronym at the start of the group', () => {
+      // dns.gardener.cloud
       expect(
         buildGraphQLInputTypeName(
-          'autoscaling',
-          'v1',
-          'HorizontalPodAutoscaler',
+          'DNSGardenerCloudV1alpha1Query',
+          'DNSAnnotation',
         ),
-      ).toBe('AutoscalingV1HorizontalPodAutoscaler_Input');
-    });
-  });
-
-  describe('custom CRD groups', () => {
-    it('should handle custom.io group', () => {
-      expect(buildGraphQLInputTypeName('custom.io', 'v1', 'Component')).toBe(
-        'CustomIoV1Component_Input',
-      );
+      ).toBe('DNSGardenerCloudV1alpha1DNSAnnotation_Input');
     });
 
-    it('should handle groups with hyphens', () => {
+    it('should keep acronyms in groups with several of them', () => {
+      // ui.id.http.example.io
       expect(
-        buildGraphQLInputTypeName('my-custom.example.io', 'v1beta1', 'Widget'),
-      ).toBe('MyCustomExampleIoV1beta1Widget_Input');
-    });
-
-    it('should handle groups starting with a digit', () => {
-      expect(buildGraphQLInputTypeName('3scale.net', 'v1', 'APIProduct')).toBe(
-        '3scaleNetV1APIProduct_Input',
-      );
+        buildGraphQLInputTypeName('UiIDHTTPExampleIoV1Query', 'Widget'),
+      ).toBe('UiIDHTTPExampleIoV1Widget_Input');
     });
   });
 
   describe('edge cases', () => {
-    it('should handle version without group', () => {
-      expect(buildGraphQLInputTypeName(undefined, 'v1alpha1', 'TestKind')).toBe(
+    it('should handle a version without group', () => {
+      expect(buildGraphQLInputTypeName('V1alpha1Query', 'TestKind')).toBe(
         'V1alpha1TestKind_Input',
       );
     });
 
-    it('should handle group without version', () => {
-      expect(buildGraphQLInputTypeName('apps', undefined, 'Deployment')).toBe(
+    it('should handle a group without version', () => {
+      expect(buildGraphQLInputTypeName('AppsQuery', 'Deployment')).toBe(
         'AppsDeployment_Input',
       );
     });
 
-    it('should handle neither group nor version', () => {
-      expect(buildGraphQLInputTypeName(undefined, undefined, 'TestKind')).toBe(
+    it('should handle the root query type', () => {
+      expect(buildGraphQLInputTypeName('Query', 'TestKind')).toBe(
         'TestKind_Input',
       );
     });
 
-    it('should handle core_platform_mesh_io style groups', () => {
-      expect(
-        buildGraphQLInputTypeName(
-          'core_platform_mesh_io',
-          'v1alpha1',
-          'AccountInfo',
-        ),
-      ).toBe('CorePlatformMeshIoV1alpha1AccountInfo_Input');
+    it('should only strip the trailing Query', () => {
+      expect(buildGraphQLInputTypeName('QueryIoV1Query', 'Query')).toBe(
+        'QueryIoV1Query_Input',
+      );
     });
 
-    it('should handle core_kcp_io style groups', () => {
-      expect(
-        buildGraphQLInputTypeName('core_kcp_io', 'v1alpha1', 'LogicalCluster'),
-      ).toBe('CoreKcpIoV1alpha1LogicalCluster_Input');
+    it('should throw for a type name without the Query suffix', () => {
+      expect(() =>
+        buildGraphQLInputTypeName('AppsV1Mutation', 'Deployment'),
+      ).toThrow('Unexpected GraphQL query type name: AppsV1Mutation');
+    });
+
+    it('should throw for a missing type name', () => {
+      expect(() => buildGraphQLInputTypeName(undefined, 'Deployment')).toThrow(
+        'Unexpected GraphQL query type name: undefined',
+      );
     });
   });
 });

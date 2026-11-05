@@ -6,6 +6,7 @@ import {
   ALL_NAMESPACE,
   type Resource,
 } from '@platform-mesh/portal-ui-lib/models';
+import { parse, print } from 'graphql';
 import { Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { MockedObject } from 'vitest';
 import { mock } from 'vitest-mock-extended';
@@ -118,10 +119,38 @@ describe('ResourceService', () => {
 
   const resource: any = { metadata: { name: 'test-name' } };
 
+  // Version-level __typename values the gateway returns for the input type
+  // name lookup of create and update.
+  const schemaTypenames = {
+    __typename: 'Query',
+    core_k8s_io: {
+      __typename: 'CoreK8sIoQuery',
+      v1: { __typename: 'CoreK8sIoV1Query' },
+    },
+    orchestrate_platform_mesh_io: {
+      v1alpha1: { __typename: 'OrchestratePlatformMeshIoV1alpha1Query' },
+    },
+    v1: { __typename: 'V1Query' },
+  };
+
+  const dnsZoneDefinition: any = {
+    apiGroup: 'network_api_foo_bar',
+    entity: 'DNSZone',
+    version: 'v1alpha1',
+    scope: 'Cluster',
+    entityCollection: 'DNSZones',
+  };
+
+  const dnsZoneTypename = {
+    network_api_foo_bar: {
+      v1alpha1: { __typename: 'NetworkAPIFooBarV1alpha1Query' },
+    },
+  };
+
   beforeEach(() => {
     mockLuigiCoreService = mock();
     mockApollo = {
-      query: vi.fn(),
+      query: vi.fn().mockReturnValue(of({ data: schemaTypenames })),
       subscribe: vi.fn(),
       mutate: vi.fn(),
     };
@@ -1464,6 +1493,118 @@ describe('ResourceService', () => {
   });
 
   describe('create', () => {
+    it('should use the input type name from the gateway schema', async () => {
+      mockApollo.query.mockReturnValue(of({ data: dnsZoneTypename }));
+      mockApollo.mutate.mockReturnValue(of({ data: {} }));
+
+      await firstValueFrom(
+        service.create(resource, dnsZoneDefinition, clusterScopeNodeContext),
+      );
+
+      const lookup = print(mockApollo.query.mock.calls[0][0].query);
+      expect(lookup).toContain('network_api_foo_bar');
+      expect(lookup).toContain('v1alpha1');
+      expect(lookup).toContain('__typename');
+      expect(print(mockApollo.mutate.mock.calls[0][0].mutation)).toContain(
+        '$object: NetworkAPIFooBarV1alpha1DNSZone_Input!',
+      );
+      expect(mockApolloFactory.apollo).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      [
+        'a group and version',
+        resourceDefinition,
+        '{ core_k8s_io { v1 { __typename } } }',
+        'CoreK8sIoV1',
+      ],
+      [
+        'a group without version',
+        unversionedResourceDefinition,
+        '{ core_k8s_io { __typename } }',
+        'CoreK8sIo',
+      ],
+      [
+        'a version without group',
+        grouplessResourceDefinition,
+        '{ v1 { __typename } }',
+        'V1',
+      ],
+      [
+        'an empty group',
+        { ...resourceDefinition, apiGroup: '' },
+        '{ v1 { __typename } }',
+        'V1',
+      ],
+      [
+        'neither group nor version',
+        grouplessUnversionedResourceDefinition,
+        '{ __typename }',
+        '',
+      ],
+    ])(
+      'should look up the query type of %s',
+      async (_, definition, expectedLookup, expectedPrefix) => {
+        mockApollo.mutate.mockReturnValue(of({ data: {} }));
+
+        await firstValueFrom(
+          service.create(resource, definition, clusterScopeNodeContext),
+        );
+
+        expect(print(mockApollo.query.mock.calls[0][0].query)).toBe(
+          print(parse(expectedLookup)),
+        );
+        expect(print(mockApollo.mutate.mock.calls[0][0].mutation)).toContain(
+          `$object: ${expectedPrefix}TestKind_Input!`,
+        );
+      },
+    );
+
+    it('should create a Gardener DNSAnnotation', async () => {
+      mockApollo.query.mockReturnValue(
+        of({
+          data: {
+            dns_gardener_cloud: {
+              v1alpha1: { __typename: 'DNSGardenerCloudV1alpha1Query' },
+            },
+          },
+        }),
+      );
+      mockApollo.mutate.mockReturnValue(of({ data: {} }));
+
+      await firstValueFrom(
+        service.create(
+          resource,
+          {
+            apiGroup: 'dns_gardener_cloud',
+            entity: 'DNSAnnotation',
+            version: 'v1alpha1',
+            scope: 'Namespaced',
+            entityCollection: 'DNSAnnotations',
+          },
+          namespacedNodeContext,
+        ),
+      );
+
+      expect(print(mockApollo.query.mock.calls[0][0].query)).toBe(
+        print(parse('{ dns_gardener_cloud { v1alpha1 { __typename } } }')),
+      );
+      expect(print(mockApollo.mutate.mock.calls[0][0].mutation)).toContain(
+        '$object: DNSGardenerCloudV1alpha1DNSAnnotation_Input!',
+      );
+    });
+
+    it('should not create the resource when the type lookup fails', async () => {
+      mockApollo.query.mockReturnValue(throwError(() => new Error('lookup')));
+
+      await expect(
+        firstValueFrom(
+          service.create(resource, resourceDefinition, clusterScopeNodeContext),
+        ),
+      ).rejects.toThrow('lookup');
+      expect(mockApollo.mutate).not.toHaveBeenCalled();
+    });
+
     it('should create resource', async () => {
       mockApollo.mutate.mockReturnValue(
         of({ data: { __typename: 'TestKind' } }),
@@ -1589,6 +1730,31 @@ describe('ResourceService', () => {
   });
 
   describe('update', () => {
+    it('should use the input type name from the gateway schema', async () => {
+      mockApollo.query.mockReturnValue(of({ data: dnsZoneTypename }));
+      mockApollo.mutate.mockReturnValue(of({ data: {} }));
+
+      await firstValueFrom(
+        service.update(resource, dnsZoneDefinition, clusterScopeNodeContext),
+      );
+
+      expect(print(mockApollo.mutate.mock.calls[0][0].mutation)).toContain(
+        '$object: NetworkAPIFooBarV1alpha1DNSZone_Input!',
+      );
+      expect(mockApolloFactory.apollo).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not update the resource when the type lookup fails', async () => {
+      mockApollo.query.mockReturnValue(throwError(() => new Error('lookup')));
+
+      await expect(
+        firstValueFrom(
+          service.update(resource, resourceDefinition, clusterScopeNodeContext),
+        ),
+      ).rejects.toThrow('lookup');
+      expect(mockApollo.mutate).not.toHaveBeenCalled();
+    });
+
     it.each([undefined, ALL_NAMESPACE])(
       'uses the HttpBin namespace for a table update without a concrete context namespace (%s)',
       async (namespaceId) => {
