@@ -114,10 +114,10 @@ export class ResourceTableCard {
       columns = [
         {
           ...readyCondition,
+          columnSettings: { ...readyCondition.columnSettings, width: '30px' },
           uiSettings: {
             ...readyCondition.uiSettings,
             displayAs: 'alert',
-            columnWidth: '30px',
           },
         },
         ...columns,
@@ -190,6 +190,8 @@ export class ResourceTableCard {
       header: this.resourceDefinition()?.entityCollection,
       tableConfig: {
         fields: this.columns(),
+        overflowMode:
+          this.resourceDefinition()?.ui?.listView?.overflowMode ?? 'Scroll',
         totalItemsCount: this.totalItemsCount(),
         paginationLimit: this.paginationLimit(),
         hasMore: this.hasMore(),

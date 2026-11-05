@@ -85,6 +85,48 @@ In order to use the generic list view, you need to adjust the node’s `content-
 
 - `"listView"`: Defines how resources are displayed in table format
   - `"resourceURL"`: Optional absolute path a **row click** navigates to, with `{resource.<dot.path>}` and `{context.<dot.path>}` placeholders resolved against the clicked row and the current Luigi context respectively (e.g. `"/workspaces/{context.organization}/components/{resource.metadata.name}"`). When set, it overrides the default relative navigation to the row's detail view — letting a flat/global list link into an entity-scoped path it cannot reach via the usual relative `navigate(name)`. Placeholders that resolve to `undefined` or `null` are left literal. Without `resourceURL`, a row click still requires a `detailView` to be present and navigates relatively to the row's own detail page.
+  - `"overflowMode"`: `"Scroll"` (default) or `"Popin"`; applies to resource cards and search tables.
+    Pop-in is a responsive table feature that adapts columns to the available container width, including on smaller screens. When space becomes limited, less important columns move into a labeled area below each row and return to the header layout as the container widens.
+    Example inside `resourceDefinition.ui`:
+    ```json
+    {
+      "listView": {
+        "overflowMode": "Popin",
+        "fields": [
+          {
+            "property": "metadata.name",
+            "label": "Name",
+            "columnSettings": {
+              "width": "30%",
+              "minWidth": "14rem",
+              "importance": 10
+            }
+          },
+          {
+            "property": "spec.description",
+            "label": "Description",
+            "columnSettings": {
+              "minWidth": "18rem",
+              "importance": 5,
+              "popinText": "About this account",
+              "popinHidden": false
+            }
+          },
+          {
+            "value": "Account",
+            "label": "Resource kind",
+            "columnSettings": {
+              "minWidth": "10rem",
+              "importance": 0,
+              "popinHidden": true
+            }
+          }
+        ]
+      }
+    }
+    ```
+    `overflowMode: "Popin"` enables the responsive layout. `columnSettings.width` sets the column width (`30%` for Name); `minWidth` sets each column's minimum width for automatic or percentage widths; `importance` controls which columns move first: Resource kind (`0`), then Description (`5`), while Name (`10`) stays visible longest. Description appears below the row as **About this account** (`popinText`), and `popinHidden: false` keeps its value visible; Resource kind disappears instead (`popinHidden: true`) because it only repeats the resource type. Use `popinHidden` only for redundant information, as hidden values are unavailable on narrow screens.
+    Column layout and pop-in settings belong in `fields[].columnSettings`; value rendering remains in `uiSettings`. For existing configurations, `uiSettings.columnWidth` remains supported; `columnSettings.width` takes precedence when provided.
   - `"fields"`: Array of `FieldDefinition` objects defining table columns. Each field's `"label"` becomes the column header, and `"property"` is a JSON path to the resource property. Fields can be grouped using the `"group"` property to display related information in a single column. The `"uiSettings"` property allows customization of rendering (format, actions, styling).
   - `"actions"`: Array of `FieldDefinition` objects with `displayAs: "button"` that render as row actions. In addition to navigation and modal actions, set `buttonSettings.action` to `"delete"` to open the resource deletion confirmation dialog. For example:
     ```json
@@ -189,6 +231,12 @@ Each field definition supports the following properties:
   - `"label"`: Display name for the group
   - `"delimiter"`: String used to separate grouped values
   - `"multiline"`: Boolean flag for multiline display of grouped values (default: true) When true, values are displayed on separate lines
+- `"columnSettings"`: Table column layout and responsiveness:
+  - `"width"`: Column width (e.g. `"200px"` or `"30%"`); replaces `uiSettings.columnWidth`.
+  - `"minWidth"`: Table column minimum width (default `3rem`); applies to automatic/percentage widths.
+  - `"importance"`: Pop-in priority; higher values stay visible longer (default `0`).
+  - `"popinText"`: Pop-in label; defaults to the column/group label.
+  - `"popinHidden"`: Hides the column content in pop-in (default `false`). Grouped columns use the first field's settings.
 - `"uiSettings"`: Object for configuring UI-specific display settings:
   - `"labelDisplay"`: Boolean flag for applying the default emphasized style to the value
   - `"displayAs"`: Controls how the value is displayed (if nothing is provided the plain text is displayed):

@@ -199,10 +199,10 @@ export class SearchListDynamicPage implements OnInit {
       columns = [
         {
           ...readyCondition,
+          columnSettings: { ...readyCondition.columnSettings, width: '30px' },
           uiSettings: {
             ...readyCondition.uiSettings,
             displayAs: 'alert',
-            columnWidth: '30px',
           },
         } as any,
         ...columns,

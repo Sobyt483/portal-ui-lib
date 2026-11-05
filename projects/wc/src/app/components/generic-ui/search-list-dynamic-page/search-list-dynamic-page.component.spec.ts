@@ -231,9 +231,9 @@ describe('SearchListDynamicPage', () => {
       expect(cols[0]).toEqual(
         expect.objectContaining({
           property: 'status.ready',
+          columnSettings: expect.objectContaining({ width: '30px' }),
           uiSettings: expect.objectContaining({
             displayAs: 'alert',
-            columnWidth: '30px',
           }),
         }),
       );

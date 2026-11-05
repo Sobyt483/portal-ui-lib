@@ -106,6 +106,9 @@
       <mfp-declarative-table
         data-testid="search-list-table"
         [columns]="columns()"
+        [overflowMode]="
+          resourceDefinition()?.ui?.listView?.overflowMode ?? 'Scroll'
+        "
         [resources]="tableResources()"
         [loading]="loading()"
         [permissions]="instancePermissionsStore.permissions()"

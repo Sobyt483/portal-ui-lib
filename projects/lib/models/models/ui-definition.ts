@@ -66,6 +66,8 @@ export interface UIDefinition {
 }
 
 export interface ListView extends UiView {
+  /** Horizontal overflow behavior for list and search tables. Defaults to Scroll. */
+  overflowMode?: 'Scroll' | 'Popin';
   filters?: FieldFilterDefinition[];
   baselineFilters?: FieldFilterDefinition[];
   /**
