@@ -1,35 +1,19 @@
-function sanitizeGroup(group: string): string {
-  let sanitized = group.replace(/[^a-zA-Z0-9]/g, '_');
-  if (/^[0-9]/.test(sanitized)) {
-    sanitized = '_' + sanitized;
-  }
-  return sanitized;
-}
+const QUERY_SUFFIX = 'Query';
 
-function pascalize(snakeCase: string): string {
-  return snakeCase
-    .split('_')
-    .filter((segment) => segment.length > 0)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join('');
-}
-
+/**
+ * Builds the input type name of a mutation from the `__typename` of the query
+ * type that holds the resource (e.g. `NetworkAPIFooBarV1alpha1Query`). The
+ * gateway names the input type `<prefix><Kind>_Input` with the same prefix,
+ * so the UI does not need its own copy of the gateway's naming rule.
+ */
 export function buildGraphQLInputTypeName(
-  apiGroup: string | undefined,
-  version: string | undefined,
+  queryTypeName: string | undefined,
   entity: string,
 ): string {
-  let prefix: string;
-
-  if (apiGroup && version) {
-    prefix = pascalize(sanitizeGroup(apiGroup) + '_' + version);
-  } else if (apiGroup) {
-    prefix = pascalize(sanitizeGroup(apiGroup));
-  } else if (version) {
-    prefix = pascalize('_' + version);
-  } else {
-    return `${entity}_Input`;
+  if (!queryTypeName?.endsWith(QUERY_SUFFIX)) {
+    throw new Error(`Unexpected GraphQL query type name: ${queryTypeName}`);
   }
 
+  const prefix = queryTypeName.slice(0, -QUERY_SUFFIX.length);
   return `${prefix}${entity}_Input`;
 }
