@@ -2248,6 +2248,31 @@ describe('ResourceTableCard', () => {
     });
   });
 
+  it('passes listView responsive settings into the table card and defaults to Scroll', () => {
+    expect(component.config().tableConfig.overflowMode).toBe('Scroll');
+    const newFixture = TestBed.createComponent(ResourceTableCard);
+    const newComponent = newFixture.componentInstance;
+    const fields = [
+      {
+        property: 'metadata.name',
+        columnSettings: {
+          width: '30%',
+          minWidth: '12rem',
+          importance: 10,
+          popinText: 'Name',
+          popinHidden: false,
+        },
+      },
+    ];
+    newComponent.context = makeContext({
+      ui: { listView: { overflowMode: 'Popin', fields } },
+    });
+    newComponent.LuigiClient = makeLuigiClient();
+    newFixture.detectChanges();
+    expect(newComponent.config().tableConfig.overflowMode).toBe('Popin');
+    expect(newComponent.config().tableConfig.fields).toEqual(fields);
+  });
+
   describe('Permissions', () => {
     it('should include createResourceFormConfig when canCreate=true (no permissionsDefinition)', () => {
       const newFixture = TestBed.createComponent(ResourceTableCard);

@@ -1,28 +1,42 @@
-<ui5-dynamic-page data-testid="search-list-dynamic-page">
-  <ui5-dynamic-page-title slot="titleArea">
+<ui5-dynamic-page
+  data-testid="search-list-dynamic-page"
+  [class.has-filters]="hasFilters()"
+>
+  <ui5-dynamic-page-title
+    slot="titleArea"
+    [class.has-logo]="resourceDefinition()?.ui?.logoUrl"
+  >
     <div slot="heading" class="page-heading">
-      <pm-resource-logo [resourceDefinition]="resourceDefinition()" />
-      <div class="page-heading-text">
-        <ui5-title data-testid="search-list-title">{{
-          resourceTitleDefinition()
-        }}</ui5-title>
-        <p data-testid="search-list-description">
-          {{ resourceDescriptionDefinition() }}
-        </p>
-      </div>
+      @if (resourceDefinition()?.ui?.logoUrl) {
+        <pm-resource-logo [resourceDefinition]="resourceDefinition()" />
+      }
+      <ui5-title data-testid="search-list-title">{{
+        resourceTitleDefinition()
+      }}</ui5-title>
     </div>
+    <p
+      slot="subheading"
+      class="page-subheading"
+      data-testid="search-list-description"
+    >
+      {{ resourceDescriptionDefinition() }}
+    </p>
 
     <div slot="snappedHeading" class="page-heading">
-      <pm-resource-logo [resourceDefinition]="resourceDefinition()" />
-      <div class="page-heading-text">
-        <ui5-title data-testid="search-list-snapped-title">{{
-          resourceTitleDefinition()
-        }}</ui5-title>
-        <p data-testid="search-list-snapped-description">
-          {{ resourceDescriptionDefinition() }}
-        </p>
-      </div>
+      @if (resourceDefinition()?.ui?.logoUrl) {
+        <pm-resource-logo [resourceDefinition]="resourceDefinition()" />
+      }
+      <ui5-title data-testid="search-list-snapped-title">{{
+        resourceTitleDefinition()
+      }}</ui5-title>
     </div>
+    <p
+      slot="snappedSubheading"
+      class="page-subheading"
+      data-testid="search-list-snapped-description"
+    >
+      {{ resourceDescriptionDefinition() }}
+    </p>
 
     <ui5-toolbar
       slot="actionsBar"
@@ -94,34 +108,39 @@
         }
       </ui5-tabcontainer>
     }
-    @if (error(); as listError) {
-      <pm-error-state
-        data-testid="search-list-error-state"
-        [code]="listError.status!"
-        [subtitle]="listError.message"
-        [retryable]="!!listError.withRetryButton"
-        (retry)="list()"
-      />
-    } @else {
-      <mfp-declarative-table
-        data-testid="search-list-table"
-        [columns]="columns()"
-        [resources]="tableResources()"
-        [loading]="loading()"
-        [permissions]="instancePermissionsStore.permissions()"
-        [totalItemsCount]="totalItemsCount()"
-        [paginationLimit]="paginationLimit()"
-        [hasMore]="hasMore()"
-        [currentPage]="currentPage()"
-        itemsPerPageLabel="Results per Page"
-        totalItemsLabel="Results"
-        loadMode="pager"
-        (buttonClick)="genericActionHandler($event)"
-        (tableRowClicked)="navigateToResource($event)"
-        (pageChange)="onPageChange($event)"
-        (paginationLimitChanged)="onLimitChange($event)"
-      />
-    }
+    <div class="table-content">
+      @if (error(); as listError) {
+        <pm-error-state
+          data-testid="search-list-error-state"
+          [code]="listError.status!"
+          [subtitle]="listError.message"
+          [retryable]="!!listError.withRetryButton"
+          (retry)="list()"
+        />
+      } @else {
+        <mfp-declarative-table
+          data-testid="search-list-table"
+          [columns]="columns()"
+          [overflowMode]="
+            resourceDefinition()?.ui?.listView?.overflowMode ?? 'Scroll'
+          "
+          [resources]="tableResources()"
+          [loading]="loading()"
+          [permissions]="instancePermissionsStore.permissions()"
+          [totalItemsCount]="totalItemsCount()"
+          [paginationLimit]="paginationLimit()"
+          [hasMore]="hasMore()"
+          [currentPage]="currentPage()"
+          itemsPerPageLabel="Results per Page"
+          totalItemsLabel="Results"
+          loadMode="pager"
+          (buttonClick)="genericActionHandler($event)"
+          (tableRowClicked)="navigateToResource($event)"
+          (pageChange)="onPageChange($event)"
+          (paginationLimitChanged)="onLimitChange($event)"
+        />
+      }
+    </div>
   </div>
 </ui5-dynamic-page>
 

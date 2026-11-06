@@ -1,5 +1,45 @@
+ui5-dynamic-page {
+  --_ui5_dynamic_page_content_padding_S: var(
+    --_ui5_dynamic_page_title_padding_S
+  );
+  --_ui5_dynamic_page_content_padding_M: var(
+    --_ui5_dynamic_page_title_padding_M
+  );
+  --_ui5_dynamic_page_content_padding_L: var(
+    --_ui5_dynamic_page_title_padding_L
+  );
+  --_ui5_dynamic_page_content_padding_XL: var(
+    --_ui5_dynamic_page_title_padding_XL
+  );
+}
+
 ui5-dynamic-page::part(fit-content) {
+  padding-block: 0;
+}
+
+ui5-dynamic-page.has-filters::part(fit-content) {
   padding: 0;
+}
+
+.table-content {
+  padding: var(--search-list-table-padding, 0);
+  padding-block: 0;
+}
+
+ui5-tabcontainer + .table-content {
+  --search-list-table-padding: var(--_ui5_dynamic_page_title_padding_S);
+}
+
+ui5-tabcontainer[media-range='M'] + .table-content {
+  --search-list-table-padding: var(--_ui5_dynamic_page_title_padding_M);
+}
+
+ui5-tabcontainer[media-range='L'] + .table-content {
+  --search-list-table-padding: var(--_ui5_dynamic_page_title_padding_L);
+}
+
+ui5-tabcontainer[media-range='XL'] + .table-content {
+  --search-list-table-padding: var(--_ui5_dynamic_page_title_padding_XL);
 }
 
 // Consistent gap directly above the table in both states:
@@ -13,8 +53,6 @@ mfp-declarative-table {
   margin-top: 1rem;
 }
 
-// Ensure the tab bar sits flush under the dynamic-page header — no extra top
-// margin that would reintroduce a gap between the header and the filters.
 ui5-tabcontainer {
   margin-top: 0;
 }
@@ -29,13 +67,28 @@ ui5-tabcontainer {
   padding-bottom: 0;
   display: block;
 }
-.page-heading-text {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+.page-heading ui5-title {
+  font-family: var(--sapObjectHeader_Title_FontFamily);
+  color: var(--sapObjectHeader_Title_TextColor);
+  font-size: var(--sapObjectHeader_Title_FontSize);
+  padding-top: 0.3125rem;
+  min-width: 0;
 }
-.page-heading-text p {
+
+.page-heading[slot='snappedHeading'] ui5-title {
+  font-size: var(--sapObjectHeader_Title_SnappedFontSize);
+}
+
+.page-subheading {
+  font-size: var(--sapFontSize);
+  font-family: var(--sapFontFamily);
+  color: var(--sapTextColor);
+  line-height: normal;
   margin: 0;
+}
+
+.has-logo .page-subheading {
+  margin-inline-start: 3.25rem;
 }
 
 .search-input {
