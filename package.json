@@ -55,7 +55,7 @@
     "@fundamental-ngx/ui5-webcomponents-fiori": "0.64.1",
     "@luigi-project/client": "2.32.0",
     "@openmfp/config-prettier": "0.9.3",
-    "@openmfp/ngx": "1.13.1",
+    "@openmfp/ngx": "1.13.2",
     "@openmfp/portal-ui-lib": "0.199.2",
     "@playwright/test": "1.63.0",
     "@storybook/angular": "10.6.1",
