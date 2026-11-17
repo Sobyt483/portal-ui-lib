@@ -806,6 +806,51 @@ describe('DetailViewComponent', () => {
     expect(mockAnchorElement.click).toHaveBeenCalled();
   });
 
+  it('should download kubeconfig when the account has no identity provider', async () => {
+    const mockAnchorElement = document.createElement('a');
+    vi.spyOn(mockAnchorElement, 'click');
+    vi.spyOn(document, 'createElement').mockReturnValue(mockAnchorElement);
+    global.URL.createObjectURL = vi.fn().mockReturnValue('blob-url');
+    accountInfoServiceMock.read.mockReturnValueOnce(
+      of({ spec: {} } as AccountInfo),
+    );
+
+    await component.downloadKubeConfig();
+
+    expect(mockAnchorElement.download).toBe('kubeconfig.yaml');
+    expect(mockAnchorElement.click).toHaveBeenCalled();
+  });
+
+  it('should put the scopes and the CA of the issuer into the kubeconfig', async () => {
+    const mockAnchorElement = document.createElement('a');
+    vi.spyOn(mockAnchorElement, 'click');
+    vi.spyOn(document, 'createElement').mockReturnValue(mockAnchorElement);
+    const createObjectURL = vi.fn().mockReturnValue('blob-url');
+    global.URL.createObjectURL = createObjectURL;
+    accountInfoServiceMock.read.mockReturnValueOnce(
+      of({
+        spec: {
+          oidc: {
+            issuerUrl: 'https://issuer.example.com',
+            clients: { kubectl: { clientId: 'client-id' } },
+            scopes: ['email', 'groups'],
+            ca: 'issuer-ca',
+          },
+        },
+      } as AccountInfo),
+    );
+
+    await component.downloadKubeConfig();
+
+    const kubeconfig = await (createObjectURL.mock.calls[0][0] as Blob).text();
+    expect(kubeconfig).toContain('- --oidc-client-id=client-id');
+    expect(kubeconfig).toContain('- --oidc-extra-scope=email');
+    expect(kubeconfig).toContain('- --oidc-extra-scope=groups');
+    expect(kubeconfig).toContain(
+      `- --certificate-authority-data=${btoa('issuer-ca')}`,
+    );
+  });
+
   it('should download kubeconfig when accountId and kcpCA are missing', async () => {
     const mockAnchorElement = document.createElement('a');
     vi.spyOn(mockAnchorElement, 'click');

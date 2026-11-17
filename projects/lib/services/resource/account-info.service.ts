@@ -31,15 +31,15 @@ export class AccountInfoService {
         map((res: any) => {
           const rawAccountInfo =
             res.data.core_platform_mesh_io.v1alpha1.AccountInfo;
+          const rawOidc = rawAccountInfo.spec.oidc;
 
           return {
             ...rawAccountInfo,
             spec: {
               ...rawAccountInfo.spec,
-              oidc: {
-                ...rawAccountInfo.spec.oidc,
-                clients: JSON.parse(rawAccountInfo.spec.oidc.clients),
-              },
+              oidc: rawOidc
+                ? { ...rawOidc, clients: JSON.parse(rawOidc.clients) }
+                : undefined,
             },
           };
         }),

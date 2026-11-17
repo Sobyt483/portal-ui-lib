@@ -23,6 +23,8 @@ export const accountInfoRead = gql`
             oidc {
               clients
               issuerUrl
+              scopes
+              ca
             }
           }
         }
