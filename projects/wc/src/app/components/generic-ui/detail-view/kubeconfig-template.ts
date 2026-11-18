@@ -4,7 +4,28 @@ export interface KubeConfigTemplateProps {
   kcpCA: string;
   oidcIssuerUrl: string;
   oidcKubectlClientId: string;
+  /** Scopes to request besides openid; `email` when empty. */
+  oidcScopes?: string[];
+  /** PEM bundle to verify the issuer with; the system trust store when empty. */
+  oidcCA?: string;
 }
+
+const defaultOidcScopes = ['email'];
+
+const oidcLoginArgs = (kubeconfigProps: KubeConfigTemplateProps): string[] => {
+  const scopes = kubeconfigProps.oidcScopes?.length
+    ? kubeconfigProps.oidcScopes
+    : defaultOidcScopes;
+
+  return [
+    `--oidc-issuer-url=${kubeconfigProps.oidcIssuerUrl}`,
+    `--oidc-client-id=${kubeconfigProps.oidcKubectlClientId}`,
+    ...scopes.map((scope) => `--oidc-extra-scope=${scope}`),
+    ...(kubeconfigProps.oidcCA
+      ? [`--certificate-authority-data=${btoa(kubeconfigProps.oidcCA)}`]
+      : []),
+  ];
+};
 
 export const kubeConfigTemplate = (
   kubeconfigProps: KubeConfigTemplateProps,
@@ -30,9 +51,9 @@ export const kubeConfigTemplate = (
           args:
           - oidc-login
           - get-token
-          - --oidc-issuer-url=${kubeconfigProps.oidcIssuerUrl}
-          - --oidc-client-id=${kubeconfigProps.oidcKubectlClientId}
-          - --oidc-extra-scope=email
+${oidcLoginArgs(kubeconfigProps)
+  .map((arg) => `          - ${arg}`)
+  .join('\n')}
           command: kubectl
           env: null
           interactiveMode: IfAvailable

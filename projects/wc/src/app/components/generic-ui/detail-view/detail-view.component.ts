@@ -626,13 +626,15 @@ export class DetailView {
       const accountInfo = await firstValueFrom(
         this.accountInfoService.read(this.context()),
       );
+      const oidc = accountInfo?.spec.oidc;
       const kubeconfigProps: KubeConfigTemplateProps = {
         clusterName: accountId ?? '',
         serverUrl: `${portalContext.kcpWorkspaceUrl}:${accountPath}`,
         kcpCA: kcpCA ?? '',
-        oidcIssuerUrl: accountInfo?.spec.oidc.issuerUrl ?? '',
-        oidcKubectlClientId:
-          accountInfo?.spec.oidc.clients.kubectl.clientId ?? '',
+        oidcIssuerUrl: oidc?.issuerUrl ?? '',
+        oidcKubectlClientId: oidc?.clients.kubectl?.clientId ?? '',
+        oidcScopes: oidc?.scopes ?? [],
+        oidcCA: oidc?.ca ?? '',
       };
 
       const kubeConfig = kubeConfigTemplate(kubeconfigProps);

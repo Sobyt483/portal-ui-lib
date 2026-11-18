@@ -79,12 +79,65 @@ describe(AccountInfoService, () => {
       );
 
       const res = await firstValueFrom(service.read(namespacedNodeContext));
-      expect(res.spec.oidc.clients).toStrictEqual({
+      expect(res.spec.oidc?.clients).toStrictEqual({
         kubectl: { clientId: 'cIdD' },
       });
       expect(mockApolloFactory.apollo).toHaveBeenCalledWith(
         namespacedNodeContext,
       );
+    });
+
+    it('should pass on the scopes and the CA of the issuer', async () => {
+      mockApollo.query.mockReturnValue(
+        of({
+          data: {
+            core_platform_mesh_io: {
+              v1alpha1: {
+                AccountInfo: {
+                  spec: {
+                    oidc: {
+                      issuerUrl: 'issuer',
+                      clients: '{ "kubectl": { "clientId": "cIdD" } }',
+                      scopes: ['email', 'groups'],
+                      ca: 'issuer-ca',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      );
+
+      const res = await firstValueFrom(service.read(namespacedNodeContext));
+
+      expect(res.spec.oidc).toStrictEqual({
+        issuerUrl: 'issuer',
+        clients: { kubectl: { clientId: 'cIdD' } },
+        scopes: ['email', 'groups'],
+        ca: 'issuer-ca',
+      });
+    });
+
+    it('should read account info without an identity provider', async () => {
+      mockApollo.query.mockReturnValue(
+        of({
+          data: {
+            core_platform_mesh_io: {
+              v1alpha1: {
+                AccountInfo: {
+                  spec: { clusterInfo: { ca: 'cert-data' }, oidc: null },
+                },
+              },
+            },
+          },
+        }),
+      );
+
+      const res = await firstValueFrom(service.read(namespacedNodeContext));
+
+      expect(res.spec.oidc).toBeUndefined();
+      expect(res.spec.clusterInfo.ca).toBe('cert-data');
     });
 
     it('should handle read account info error', async () => {
