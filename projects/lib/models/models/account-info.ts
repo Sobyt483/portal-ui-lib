@@ -14,6 +14,8 @@ export interface AccountInfo {
       clients: {
         kubectl?: {
           clientId: string;
+          /** Secret of a client that is not public; absent for a public client. */
+          clientSecret?: string | null;
         };
       };
       /** Scopes to request besides openid; empty leaves the choice to the client. */

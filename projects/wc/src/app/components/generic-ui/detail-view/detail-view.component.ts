@@ -633,6 +633,7 @@ export class DetailView {
         kcpCA: kcpCA ?? '',
         oidcIssuerUrl: oidc?.issuerUrl ?? '',
         oidcKubectlClientId: oidc?.clients.kubectl?.clientId ?? '',
+        oidcKubectlClientSecret: oidc?.clients.kubectl?.clientSecret ?? '',
         oidcScopes: oidc?.scopes ?? [],
         oidcCA: oidc?.ca ?? '',
       };

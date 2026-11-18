@@ -50,6 +50,27 @@ describe('kubeConfigTemplate', () => {
     ]);
   });
 
+  it('passes the secret of a client that is not public', () => {
+    const result = args(
+      kubeConfigTemplate({ ...props, oidcKubectlClientSecret: 'not-a-secret' }),
+    );
+
+    expect(result).toEqual([
+      '          - oidc-login',
+      '          - get-token',
+      '          - --oidc-issuer-url=https://issuer.example.com',
+      '          - --oidc-client-id=kubectl',
+      '          - --oidc-client-secret=not-a-secret',
+      '          - --oidc-extra-scope=email',
+    ]);
+  });
+
+  it('passes no secret for a public client', () => {
+    expect(
+      kubeConfigTemplate({ ...props, oidcKubectlClientSecret: '' }),
+    ).not.toContain('--oidc-client-secret');
+  });
+
   it('passes the CA of the issuer base64 encoded', () => {
     const ca = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n';
 
