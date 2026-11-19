@@ -25,12 +25,23 @@ jobs:
 
   publish:
     needs: [create-version, build]
-    uses: platform-mesh/.github/.github/workflows/job-node-publish.yml@33d3ee309a70b300c1775d78054cbb9215673b7b
-    secrets: inherit # zizmor: ignore[secrets-inherit]
+    runs-on: ubuntu-latest
+    environment: npmjs:@platform-mesh/portal-ui-lib
     permissions:
-      contents: write # Needed to create the GitHub release
       id-token: write # Needed for npm provenance via OIDC when publishing
-    with:
-      version: ${{ needs.create-version.outputs.strictVersion }}
-      publishFromDist: true
-      environment: npmjs:@platform-mesh/portal-ui-lib
+    env:
+      VERSION: ${{ needs.create-version.outputs.strictVersion }}
+    steps:
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: target
+          path: dist
+      - name: Publish
+        run: |
+          npm version "${VERSION}"
+          npm publish --provenance --access public
+        working-directory: dist
