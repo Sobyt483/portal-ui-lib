@@ -851,6 +851,32 @@ describe('DetailViewComponent', () => {
     );
   });
 
+  it('should put the secret of a confidential client into the kubeconfig', async () => {
+    const mockAnchorElement = document.createElement('a');
+    vi.spyOn(mockAnchorElement, 'click');
+    vi.spyOn(document, 'createElement').mockReturnValue(mockAnchorElement);
+    const createObjectURL = vi.fn().mockReturnValue('blob-url');
+    global.URL.createObjectURL = createObjectURL;
+    accountInfoServiceMock.read.mockReturnValueOnce(
+      of({
+        spec: {
+          oidc: {
+            issuerUrl: 'https://issuer.example.com',
+            clients: {
+              kubectl: { clientId: 'client-id', clientSecret: 'not-a-secret' },
+            },
+          },
+        },
+      } as AccountInfo),
+    );
+
+    await component.downloadKubeConfig();
+
+    const kubeconfig = await (createObjectURL.mock.calls[0][0] as Blob).text();
+    expect(kubeconfig).toContain('- --oidc-client-id=client-id');
+    expect(kubeconfig).toContain('- --oidc-client-secret=not-a-secret');
+  });
+
   it('should download kubeconfig when accountId and kcpCA are missing', async () => {
     const mockAnchorElement = document.createElement('a');
     vi.spyOn(mockAnchorElement, 'click');

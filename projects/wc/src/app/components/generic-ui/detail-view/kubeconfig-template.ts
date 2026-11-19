@@ -4,6 +4,8 @@ export interface KubeConfigTemplateProps {
   kcpCA: string;
   oidcIssuerUrl: string;
   oidcKubectlClientId: string;
+  /** Secret of a client that is not public; no secret is passed when empty. */
+  oidcKubectlClientSecret?: string;
   /** Scopes to request besides openid; `email` when empty. */
   oidcScopes?: string[];
   /** PEM bundle to verify the issuer with; the system trust store when empty. */
@@ -20,6 +22,9 @@ const oidcLoginArgs = (kubeconfigProps: KubeConfigTemplateProps): string[] => {
   return [
     `--oidc-issuer-url=${kubeconfigProps.oidcIssuerUrl}`,
     `--oidc-client-id=${kubeconfigProps.oidcKubectlClientId}`,
+    ...(kubeconfigProps.oidcKubectlClientSecret
+      ? [`--oidc-client-secret=${kubeconfigProps.oidcKubectlClientSecret}`]
+      : []),
     ...scopes.map((scope) => `--oidc-extra-scope=${scope}`),
     ...(kubeconfigProps.oidcCA
       ? [`--certificate-authority-data=${btoa(kubeconfigProps.oidcCA)}`]
