@@ -1,5 +1,6 @@
 import { Injector, Type } from '@angular/core';
 import { createCustomElement } from '@angular/elements';
+import { registerWebComponent } from '@luigi-project/client/luigi-element';
 
 export const registerLuigiWebComponent = (
   component: Type<any>,
@@ -7,7 +8,7 @@ export const registerLuigiWebComponent = (
   url: string = getSrc(),
 ) => {
   const el = createCustomElement(component, { injector });
-  (window as any).Luigi._registerWebcomponent(url, el);
+  registerWebComponent(url, el as unknown as HTMLElement);
 };
 
 /**

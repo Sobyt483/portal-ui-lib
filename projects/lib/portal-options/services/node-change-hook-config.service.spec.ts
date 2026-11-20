@@ -49,7 +49,7 @@ describe('NodeChangeHookConfigServiceImpl', () => {
     service = TestBed.inject(NodeChangeHookConfigServiceImpl);
   });
 
-  it('should navigate when initialRoute and virtualTree exist and _virtualTree does not exist', async () => {
+  it('should navigate to initialRoute for a virtual tree root', async () => {
     const prevNode = {} as any;
     const nextNode = {
       initialRoute: '/some/path',

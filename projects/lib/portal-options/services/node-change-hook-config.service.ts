@@ -31,11 +31,7 @@ export class NodeChangeHookConfigServiceImpl implements NodeChangeHookConfigServ
     const updatePersistentPanelTarget =
       this.persistentPanelService.beginTargetUpdate();
 
-    if (
-      nextNode.initialRoute &&
-      nextNode.virtualTree &&
-      !(nextNode as any)._virtualTree
-    ) {
+    if (nextNode.initialRoute && nextNode.virtualTree) {
       this.luigiCoreService.navigation().navigate(nextNode.initialRoute);
     }
 

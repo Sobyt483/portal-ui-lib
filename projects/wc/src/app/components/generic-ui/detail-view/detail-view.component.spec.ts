@@ -29,6 +29,7 @@ describe('DetailViewComponent', () => {
     readKubeconfig: ReturnType<typeof vi.fn>;
   };
   let luigiClientLinkManagerNavigate = vi.fn();
+  let luigiClientSetDirtyStatus: ReturnType<typeof vi.fn>;
   let errorHandlerServiceMock: MockedObject<ErrorHandlerService>;
   const secretAction = {
     uiSettings: {
@@ -47,6 +48,7 @@ describe('DetailViewComponent', () => {
   } as const;
 
   beforeEach(() => {
+    luigiClientSetDirtyStatus = vi.fn();
     envConfigServiceMock = mock();
     accountInfoServiceMock = mock();
     kubeconfigSecretServiceMock = {
@@ -164,6 +166,7 @@ describe('DetailViewComponent', () => {
         withParams: vi.fn().mockReturnThis(),
       }),
       uxManager: () => ({
+        setDirtyStatus: luigiClientSetDirtyStatus,
         showAlert: vi.fn(),
       }),
       getNodeParams: vi.fn(),
@@ -233,6 +236,7 @@ describe('DetailViewComponent', () => {
         withParams: vi.fn().mockReturnThis(),
       }),
       uxManager: () => ({
+        setDirtyStatus: vi.fn(),
         showAlert: vi.fn(),
       }),
       getNodeParams: vi.fn(),
@@ -271,6 +275,7 @@ describe('DetailViewComponent', () => {
         withParams: vi.fn().mockReturnThis(),
       }),
       uxManager: () => ({
+        setDirtyStatus: vi.fn(),
         showAlert: vi.fn(),
       }),
       getNodeParams: vi.fn(),
@@ -298,6 +303,7 @@ describe('DetailViewComponent', () => {
         withParams: vi.fn().mockReturnThis(),
       }),
       uxManager: () => ({
+        setDirtyStatus: vi.fn(),
         showAlert: vi.fn(),
       }),
       getNodeParams: vi.fn(),
@@ -709,6 +715,7 @@ describe('DetailViewComponent', () => {
           withParams: vi.fn().mockReturnThis(),
         }),
         uxManager: () => ({
+          setDirtyStatus: vi.fn(),
           showAlert: showAlertSpy,
         }),
         getNodeParams: vi.fn(),
@@ -920,7 +927,7 @@ describe('DetailViewComponent', () => {
   it('should show alert when downloadKubeConfig fails', async () => {
     const showAlertSpy = vi.fn();
     component.LuigiClient = (() => ({
-      uxManager: () => ({ showAlert: showAlertSpy }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert: showAlertSpy }),
       linkManager: () => ({
         fromContext: vi.fn().mockReturnThis(),
         navigate: vi.fn(),
@@ -1046,7 +1053,7 @@ describe('DetailViewComponent', () => {
   it('should surface a click-time error when the kubeconfig download fails', async () => {
     const showAlert = vi.fn();
     component.LuigiClient = (() => ({
-      uxManager: () => ({ showAlert }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert }),
       linkManager: () => ({ navigate: vi.fn(), openAsModal: vi.fn() }),
       getActiveFeatureToggles: () => [],
     })) as any;
@@ -1220,7 +1227,7 @@ describe('DetailViewComponent', () => {
       metadata: { name: 'cluster-1', namespace: 'default' },
     } as any);
     component.LuigiClient = (() => ({
-      uxManager: () => ({ showAlert }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert }),
       linkManager: () => ({ navigate: vi.fn(), openAsModal: vi.fn() }),
       getActiveFeatureToggles: () => [],
     })) as any;
@@ -1253,11 +1260,11 @@ describe('DetailViewComponent', () => {
       kcpPath: 'root:orgs:showroom:old-account',
     };
     newFixture.componentRef.setInput('context', oldContext);
-    newFixture.componentRef.setInput('LuigiClient', (() => ({
-      uxManager: () => ({ showAlert }),
+    newFixture.componentRef.setInput('LuigiClient', {
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert }),
       linkManager: () => ({ navigate: vi.fn(), openAsModal: vi.fn() }),
       getActiveFeatureToggles: () => [],
-    })) as any);
+    });
     newFixture.detectChanges();
     newComponent.resource.set({
       metadata: { name: 'cluster-1', namespace: 'default' },
@@ -1296,7 +1303,7 @@ describe('DetailViewComponent', () => {
       view.componentRef.setInput('context', context);
       view.componentRef.setInput('LuigiClient', {
         ...component.LuigiClient(),
-        uxManager: () => ({ showAlert }),
+        uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert }),
       });
       view.detectChanges();
       kubeconfigSecretServiceMock.readKubeconfig.mockReturnValue(pending);
@@ -1341,7 +1348,7 @@ describe('DetailViewComponent', () => {
       metadata: { name: 'cluster-1', namespace: 'default' },
     } as any);
     component.LuigiClient = (() => ({
-      uxManager: () => ({ showAlert }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert }),
       linkManager: () => ({ navigate: vi.fn(), openAsModal: vi.fn() }),
       getActiveFeatureToggles: () => [],
     })) as any;
@@ -1365,7 +1372,7 @@ describe('DetailViewComponent', () => {
   it('should report the service error without attempting a download', async () => {
     const showAlertSpy = vi.fn();
     component.LuigiClient = (() => ({
-      uxManager: () => ({ showAlert: showAlertSpy }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert: showAlertSpy }),
       linkManager: () => ({
         fromContext: vi.fn().mockReturnThis(),
         navigate: vi.fn(),
@@ -1492,7 +1499,7 @@ describe('DetailViewComponent', () => {
     }) as any;
     newComponent.LuigiClient = (() => ({
       linkManager: () => ({ navigate: vi.fn(), openAsModal: vi.fn() }),
-      uxManager: () => ({ showAlert }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert }),
       getActiveFeatureToggles: () => [],
     })) as any;
     newFixture.detectChanges();
@@ -1534,7 +1541,7 @@ describe('DetailViewComponent', () => {
     }) as any;
     newComponent.LuigiClient = (() => ({
       linkManager: () => ({ navigate: vi.fn(), openAsModal: vi.fn() }),
-      uxManager: () => ({ showAlert }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert }),
       getActiveFeatureToggles: () => [],
     })) as any;
     newFixture.detectChanges();
@@ -1709,7 +1716,7 @@ describe('DetailViewComponent', () => {
         navigate: vi.fn(),
         openAsModal,
       }),
-      uxManager: () => ({ showAlert: vi.fn() }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert: vi.fn() }),
       getActiveFeatureToggles: () => [],
     })) as any;
     newFixture.detectChanges();
@@ -1755,6 +1762,7 @@ describe('DetailViewComponent', () => {
         withParams: vi.fn().mockReturnThis(),
       }),
       uxManager: () => ({
+        setDirtyStatus: vi.fn(),
         showAlert: vi.fn(),
       }),
       getNodeParams: vi.fn(),
@@ -1815,6 +1823,7 @@ describe('DetailViewComponent', () => {
         withParams: vi.fn().mockReturnThis(),
       }),
       uxManager: () => ({
+        setDirtyStatus: vi.fn(),
         showAlert: vi.fn(),
       }),
       getNodeParams: vi.fn(),
@@ -1895,6 +1904,7 @@ describe('DetailViewComponent', () => {
 
     beforeEach(() => {
       mockUxManager = {
+        setDirtyStatus: vi.fn(),
         showAlert: vi.fn(),
       };
     });
@@ -2100,6 +2110,7 @@ describe('DetailViewComponent', () => {
           withParams: vi.fn().mockReturnThis(),
         }),
         uxManager: () => ({
+          setDirtyStatus: vi.fn(),
           showAlert: vi.fn(),
         }),
         getNodeParams: vi.fn(),
@@ -2153,6 +2164,7 @@ describe('DetailViewComponent', () => {
           withParams: vi.fn().mockReturnThis(),
         }),
         uxManager: () => ({
+          setDirtyStatus: vi.fn(),
           showAlert: vi.fn(),
         }),
         getNodeParams: vi.fn(),
@@ -2207,6 +2219,7 @@ describe('DetailViewComponent', () => {
           withParams: vi.fn().mockReturnThis(),
         }),
         uxManager: () => ({
+          setDirtyStatus: vi.fn(),
           showAlert: vi.fn(),
         }),
         getNodeParams: vi.fn(),
@@ -2256,7 +2269,7 @@ describe('DetailViewComponent', () => {
           fromContext: vi.fn().mockReturnThis(),
           navigate: vi.fn(),
         }),
-        uxManager: () => ({ showAlert: vi.fn() }),
+        uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert: vi.fn() }),
         getNodeParams: vi.fn(),
         getActiveFeatureToggles: () => [],
       })) as any;
@@ -2291,7 +2304,7 @@ describe('DetailViewComponent', () => {
           fromContext: vi.fn().mockReturnThis(),
           navigate: vi.fn(),
         }),
-        uxManager: () => ({ showAlert: vi.fn() }),
+        uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert: vi.fn() }),
         getNodeParams: vi.fn(),
         getActiveFeatureToggles: () => [],
       })) as any;
@@ -2403,7 +2416,7 @@ describe('DetailViewComponent', () => {
           fromContext: vi.fn().mockReturnThis(),
           navigate: vi.fn(),
         }),
-        uxManager: () => ({ showAlert: vi.fn() }),
+        uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert: vi.fn() }),
         getNodeParams: vi.fn(),
         getActiveFeatureToggles: () => [],
       })) as any;
@@ -2451,71 +2464,40 @@ describe('DetailViewComponent', () => {
       );
     });
   });
-  describe('Luigi page-dirty shim', () => {
-    it('should not post luigi.set-page-dirty on init', () => {
-      const postSpy = vi.spyOn(window, 'postMessage');
-
+  describe('Luigi page dirty status', () => {
+    it('should not set dirty status on init', () => {
       const newFixture = TestBed.createComponent(DetailView);
       const newComponent = newFixture.componentInstance;
       newComponent.context = component.context;
       newComponent.LuigiClient = component.LuigiClient;
       newFixture.detectChanges();
 
-      expect(
-        postSpy.mock.calls.some(
-          (call) => (call[0] as any)?.msg === 'luigi.set-page-dirty',
-        ),
-      ).toBe(false);
+      expect(luigiClientSetDirtyStatus).not.toHaveBeenCalled();
     });
 
-    it('should post luigi.set-page-dirty when the dashboard emits unsavedChangesChange', () => {
-      const postSpy = vi.spyOn(window, 'postMessage');
-
-      // Drive the template handler directly — this is what the
-      // (unsavedChangesChange)="setLuigiPageDirty($event)" binding does.
+    it('should set dirty status when the dashboard emits unsavedChangesChange', () => {
       (component as any).setLuigiPageDirty(true);
 
-      const dirtyCalls = postSpy.mock.calls.filter(
-        (call) => (call[0] as any)?.msg === 'luigi.set-page-dirty',
-      );
-      expect(dirtyCalls.length).toBe(1);
-      expect(dirtyCalls[0][0]).toEqual({
-        msg: 'luigi.set-page-dirty',
-        dirty: true,
-      });
+      expect(luigiClientSetDirtyStatus).toHaveBeenCalledTimes(1);
+      expect(luigiClientSetDirtyStatus).toHaveBeenNthCalledWith(1, true);
 
       (component as any).setLuigiPageDirty(false);
 
-      const finalCalls = postSpy.mock.calls.filter(
-        (call) => (call[0] as any)?.msg === 'luigi.set-page-dirty',
-      );
-      expect(finalCalls.length).toBe(2);
-      expect(finalCalls[1][0]).toEqual({
-        msg: 'luigi.set-page-dirty',
-        dirty: false,
-      });
+      expect(luigiClientSetDirtyStatus).toHaveBeenCalledTimes(2);
+      expect(luigiClientSetDirtyStatus).toHaveBeenNthCalledWith(2, false);
     });
 
-    it('should post dirty=false when the component is destroyed', () => {
+    it('should reset dirty status when the component is destroyed', () => {
       const newFixture = TestBed.createComponent(DetailView);
       const newComponent = newFixture.componentInstance;
       newComponent.context = component.context;
       newComponent.LuigiClient = component.LuigiClient;
-
       newFixture.detectChanges();
 
-      // Reset spy so we only assert what destroy emits.
-      const postSpy = vi.spyOn(window, 'postMessage');
       newFixture.destroy();
 
-      const dirtyCalls = postSpy.mock.calls.filter(
-        (call) => (call[0] as any)?.msg === 'luigi.set-page-dirty',
-      );
-      expect(dirtyCalls.length).toBe(1);
-      expect(dirtyCalls[0][0]).toEqual({
-        msg: 'luigi.set-page-dirty',
-        dirty: false,
-      });
+      expect(luigiClientSetDirtyStatus).toHaveBeenCalledTimes(1);
+      expect(luigiClientSetDirtyStatus).toHaveBeenCalledWith(false);
     });
   });
 
@@ -2626,7 +2608,7 @@ describe('DetailViewComponent template', () => {
     fixture.componentRef.setInput('LuigiClient', {
       addCoreSearchParams,
       linkManager: () => ({ fromContext: () => ({ navigate }) }),
-      uxManager: () => ({ showAlert }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert }),
       getActiveFeatureToggles: () => [],
     });
     fixture.detectChanges();
@@ -3053,6 +3035,7 @@ describe('DetailViewComponent template', () => {
         withParams: vi.fn().mockReturnThis(),
       }),
       uxManager: () => ({
+        setDirtyStatus: vi.fn(),
         showAlert: vi.fn(),
       }),
       getNodeParams: vi.fn(),
@@ -3113,7 +3096,7 @@ describe('DetailViewComponent — instancePermissions and canDoAction', () => {
         navigate: vi.fn(),
         withParams: vi.fn().mockReturnThis(),
       }),
-      uxManager: () => ({ showAlert: vi.fn() }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert: vi.fn() }),
       getNodeParams: vi.fn(),
       getActiveFeatureToggles: () => [],
     })) as any;
@@ -3274,7 +3257,7 @@ describe('DetailViewComponent — namespace repair from route path params', () =
         navigate: vi.fn(),
         withParams: vi.fn().mockReturnThis(),
       }),
-      uxManager: () => ({ showAlert: vi.fn() }),
+      uxManager: () => ({ setDirtyStatus: vi.fn(), showAlert: vi.fn() }),
       getNodeParams: vi.fn(),
       getActiveFeatureToggles: () => [],
       ...(getPathParams ? { getPathParams } : {}),
