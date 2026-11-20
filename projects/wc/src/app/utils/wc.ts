@@ -8,6 +8,7 @@ export const registerLuigiWebComponent = (
   url: string = getSrc(),
 ) => {
   const el = createCustomElement(component, { injector });
+  // Luigi 2.33.0 types this as an instance, but expects an element constructor.
   registerWebComponent(url, el as unknown as HTMLElement);
 };
 
