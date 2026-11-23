@@ -92,18 +92,13 @@ export function executeButtonAction<T, R = unknown>(
       luigiClient.linkManager().navigate(sanitizedPath);
       return;
     case 'openInModal':
-      // openAsModal returns a Promise resolved with a { data } envelope that
-      // wraps the goBackContext, but the luigi-element d.ts incorrectly
-      // declares it as void. The value is undefined when closed without a
-      // goBack context.
-      return (
-        luigiClient
-          .linkManager()
-          .openAsModal(
-            sanitizedPath,
-            buttonSettings.modalSettings,
-          ) as unknown as Promise<ModalResult<R> | undefined>
-      ).then(callBack);
+      return luigiClient
+        .linkManager()
+        .openAsModal<ModalResult<R> | undefined>(
+          sanitizedPath,
+          buttonSettings.modalSettings,
+        )
+        .then(callBack);
     default:
       throw Error(
         `Unsupported action: ${buttonSettings?.action}, in field declaration: ${JSON.stringify(field)}`,

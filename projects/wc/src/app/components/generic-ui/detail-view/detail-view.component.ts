@@ -384,20 +384,9 @@ export class DetailView {
    * changes (sidebar/breadcrumb navigation, top nav, etc.) trigger Luigi's
    * own "unsaved changes" prompt. Bound from the template via
    * `(unsavedChangesChange)`.
-   *
-   * TODO: replace the postMessage hack with
-   *   this.LuigiClient().uxManager().setDirtyStatus(dirty)
-   * once the bundled Luigi client exposes setDirtyStatus. The hack matches
-   * the message contract Luigi already listens for internally.
    */
   protected setLuigiPageDirty(dirty: boolean): void {
-    window.postMessage(
-      {
-        msg: 'luigi.set-page-dirty',
-        dirty,
-      },
-      '*',
-    );
+    this.LuigiClient().uxManager().setDirtyStatus(dirty);
   }
 
   private readResource() {
