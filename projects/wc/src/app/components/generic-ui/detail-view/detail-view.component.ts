@@ -61,7 +61,6 @@ import {
   isDownloadKubeconfigButtonSettings,
 } from '@platform-mesh/portal-ui-lib/services';
 import {
-  generateGraphQLFields,
   generateGraphQLReadFields,
   getResourceValueByJsonPath,
   isNamespacedResource,
@@ -576,7 +575,8 @@ export class DetailView {
   update(resource: Resource) {
     const resourceDefinition = this.getResourceDefinition();
     const resourceId = this.getResourceId();
-    const fields = generateGraphQLReadFields(this.resourceCreateEditFields());
+    const fields = this.getDetailViewQueryFields();
+    const context = this.effectiveContext();
     const resourceToUpdate: Resource = {
       ...resource,
       metadata: { name: resourceId },
@@ -586,12 +586,16 @@ export class DetailView {
       .update(
         resourceToUpdate,
         resourceDefinition,
-        this.effectiveContext(),
+        context,
         resourceDefinition.entity.toLowerCase() === 'account',
         fields,
       )
       .subscribe({
         next: (result: any) => {
+          if (context !== this.effectiveContext()) {
+            return;
+          }
+
           this.resource.set(result);
           this.createModal()?.close();
           console.debug('Resource updated', result);
@@ -740,7 +744,7 @@ export class DetailView {
     // The query covers exactly what the detail view renders
     // (ui.detailView.fields); createView is a separate field set and is not
     // part of the detail read.
-    return generateGraphQLFields(
+    return generateGraphQLReadFields(
       this.resourceDetailFields().concat(additionalFields),
     );
   }

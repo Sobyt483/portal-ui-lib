@@ -511,23 +511,75 @@ describe('DetailViewComponent', () => {
       );
     });
 
-    it('should update resource successfully', () => {
+    it('should update resource successfully without losing detail-only fields', () => {
       const mockCreateModal = {
         close: vi.fn(),
       };
-      (component as any).createModal = () => mockCreateModal;
-      const updatedResource = { metadata: { name: 'cluster-1' }, spec: {} };
-      mockResourceService.update = vi.fn().mockReturnValue(of(updatedResource));
+      const updatedResource = {
+        metadata: { name: 'cluster-1', namespace: 'team-a' },
+        spec: { displayName: 'Updated cluster' },
+        status: { phase: 'Ready' },
+      };
+      mockResourceService.update = vi.fn(
+        (_resource, _definition, _context, _isAccount, fields) =>
+          of(
+            Object.fromEntries(
+              Object.entries(updatedResource).map(([group, values]) => [
+                group,
+                Object.fromEntries(
+                  Object.entries(values).filter(([property]) =>
+                    fields.some((field: any) =>
+                      field[group]?.includes(property),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+      );
+
+      const localFixture = TestBed.createComponent(DetailView);
+      const localComponent = localFixture.componentInstance;
+      localFixture.componentRef.setInput('context', {
+        ...component.context(),
+        namespaceId: 'team-a',
+        resourceDefinition: {
+          ...component.context().resourceDefinition,
+          scope: 'Namespaced',
+          ui: {
+            detailView: {
+              fields: [
+                { property: 'metadata.name' },
+                { property: 'spec.displayName' },
+                { property: 'status.phase' },
+              ],
+            },
+            createView: { fields: [{ property: 'spec.displayName' }] },
+          },
+        },
+      });
+      localFixture.componentRef.setInput(
+        'LuigiClient',
+        component.LuigiClient(),
+      );
+      (localComponent as any).createModal = () => mockCreateModal;
+      localFixture.detectChanges();
 
       const resource: any = {
         metadata: { name: 'test-resource' },
       };
 
-      component.update(resource);
+      localComponent.update(resource);
 
       expect(mockResourceService.update).toHaveBeenCalled();
-      expect(component.resource()).toEqual(updatedResource);
+      expect(localComponent.resource()).toEqual(updatedResource);
       expect(mockCreateModal.close).toHaveBeenCalled();
+      expect(mockResourceService.update.mock.calls[0][4]).toEqual(
+        mockResourceService.read.mock.calls.at(-1)[2],
+      );
+      expect(mockResourceService.update.mock.calls[0][4]).toContainEqual({
+        metadata: ['deletionTimestamp'],
+      });
     });
 
     it('should omit write-only fields from the update mutation return selection', () => {
@@ -548,7 +600,16 @@ describe('DetailViewComponent', () => {
           entityCollection: 'idpregistrations',
           apiGroup: 'core_platform_mesh_io',
           ui: {
-            detailView: { fields: [] },
+            detailView: {
+              fields: [
+                { property: 'spec.oidc.clientId', label: 'Client ID' },
+                {
+                  property: 'spec.oidc.clientSecret',
+                  label: 'Client secret',
+                  writeOnly: true,
+                },
+              ],
+            },
             createView: {
               fields: [
                 { property: 'spec.oidc.clientId', label: 'Client ID' },
@@ -566,6 +627,12 @@ describe('DetailViewComponent', () => {
       (localComponent as any).createModal = () => mockCreateModal;
       localFixture.detectChanges();
 
+      const readFields = JSON.stringify(
+        mockResourceService.read.mock.calls.at(-1)[2],
+      );
+      expect(readFields).toContain('clientId');
+      expect(readFields).not.toContain('clientSecret');
+
       localComponent.update({
         metadata: { name: 'dex' },
         spec: { oidc: { clientId: 'id' } },
@@ -575,6 +642,52 @@ describe('DetailViewComponent', () => {
       const fields = JSON.stringify(updateSpy.mock.calls[0][4]);
       expect(fields).toContain('clientId');
       expect(fields).not.toContain('clientSecret');
+    });
+
+    it('should ignore an update completed after the resource context changes', () => {
+      const oldUpdate = new Subject<any>();
+      mockResourceService.update.mockReturnValue(oldUpdate);
+      const mockCreateModal = { close: vi.fn() };
+      const localFixture = TestBed.createComponent(DetailView);
+      const localComponent = localFixture.componentInstance;
+      const oldContext = {
+        ...component.context(),
+        resourceId: 'old-cluster',
+        kcpPath: 'root:orgs:showroom:old-account',
+        namespaceId: 'team-a',
+        resourceDefinition: {
+          ...component.context().resourceDefinition,
+          scope: 'Namespaced',
+        },
+      };
+      localFixture.componentRef.setInput('context', oldContext);
+      localFixture.componentRef.setInput(
+        'LuigiClient',
+        component.LuigiClient(),
+      );
+      (localComponent as any).createModal = () => mockCreateModal;
+      localFixture.detectChanges();
+      localComponent.update({ metadata: { name: 'old-cluster' } } as any);
+
+      const currentResource = {
+        metadata: { name: 'new-cluster', namespace: 'team-b' },
+      };
+      mockResourceService.read.mockReturnValue(of(currentResource));
+      localFixture.componentRef.setInput('context', {
+        ...oldContext,
+        resourceId: 'new-cluster',
+        kcpPath: 'root:orgs:showroom:new-account',
+        namespaceId: 'team-b',
+      });
+      localFixture.detectChanges();
+      expect(localComponent.resource()).toEqual(currentResource);
+
+      oldUpdate.next({
+        metadata: { name: 'old-cluster', namespace: 'team-a' },
+      });
+
+      expect(localComponent.resource()).toEqual(currentResource);
+      expect(mockCreateModal.close).not.toHaveBeenCalled();
     });
 
     it('should handle update error', () => {
