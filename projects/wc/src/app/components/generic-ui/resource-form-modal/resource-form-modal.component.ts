@@ -5,6 +5,7 @@ import {
   FormValidationController,
   buildInitialValues,
   buildResourceFormFields,
+  expandCollectionEntries,
   omitEmptyWriteOnlyFields,
   resolveFieldDynamicValuesResult,
   validateFormField,
@@ -155,8 +156,12 @@ export class ResourceFormModal {
 
   onFormSubmit(value: Record<string, unknown>): void {
     if (this.isEditMode()) {
-      const sanitized = omitEmptyWriteOnlyFields(value, this.calculateFields());
-      this.updateResource.emit(sanitized as Resource);
+      const fields = this.calculateFields();
+      const expanded = expandCollectionEntries(
+        omitEmptyWriteOnlyFields(value, fields),
+        fields,
+      ) as Resource;
+      this.updateResource.emit(expanded);
       return;
     }
 

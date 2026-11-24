@@ -519,6 +519,38 @@ describe('ResourceFormModal', () => {
       expect(spy).not.toHaveBeenCalled();
     });
 
+    it('should expand collection entries and omit empty write-only fields on edit submit', async () => {
+      fixture.componentRef.setInput('fields', [
+        ...testFields,
+        { property: 'spec.clientSecret', writeOnly: true },
+        {
+          property: 'spec.services',
+          propertyCollection: [{ property: 'serviceTemplate.metadata.name' }],
+        },
+      ]);
+      await component.open({ metadata: { name: 'sample-widget' } } as any);
+      const spy = vi.spyOn(component.updateResource, 'emit');
+
+      component.onFormSubmit({
+        metadata: { name: 'sample-widget' },
+        spec: {
+          description: 'updated',
+          clientSecret: '',
+          services: [{ 'serviceTemplate.metadata.name': 'sample-service' }],
+        },
+      });
+
+      expect(spy).toHaveBeenCalledWith({
+        metadata: { name: 'sample-widget' },
+        spec: {
+          description: 'updated',
+          services: [
+            { serviceTemplate: { metadata: { name: 'sample-service' } } },
+          ],
+        },
+      });
+    });
+
     it('should omit empty write-only fields on edit submit', async () => {
       const fieldsWithSecret: PlatformMeshFieldDefinition[] = [
         { property: 'metadata.name', required: true, label: 'Name' },
